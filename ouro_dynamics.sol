@@ -304,21 +304,21 @@ contract OURODynamics {
     /**
      * @dev buy back OGS with collateral
      */
-    function buybackOGS(CollateralInfo storage assetInfo, uint256 slotValue) internal {
+    function buybackOGS(CollateralInfo storage collateral, uint256 slotValue) internal {
         uint256 collateralToBuyOGS = slotValue
-                                        .mul(assetInfo.priceUnit)
-                                        .div(getAssetPrice(assetInfo.priceFeed));
+                                        .mul(collateral.priceUnit)
+                                        .div(getAssetPrice(collateral.priceFeed));
 
         // the path to swap OGS out
         address[] memory path = new address[](2);
-        path[0] = address(assetInfo.token);
+        path[0] = address(collateral.token);
         path[1] = address(ogsContract);
         
         // calc amount OGS that could be swapped out with given collateral
         uint [] memory amounts = router.getAmountsOut(collateralToBuyOGS, path);
         uint256 ogsAmountOut = amounts[1];
         
-        if (assetInfo.isNative) {
+        if (collateral.isNative) {
             // for native assets, call ouro contract to transfer ETH, BNB to THIS contract
             ouroContract.acquireNative(collateralToBuyOGS);
 
@@ -330,12 +330,12 @@ contract OURODynamics {
             
         } else {
             // for ERC20 assets, transfer the tokens from ouro contract to THIS contract
-            assetInfo.token.safeTransferFrom(address(ouroContract), address(this), collateralToBuyOGS);
+            collateral.token.safeTransferFrom(address(ouroContract), address(this), collateralToBuyOGS);
             
             // make sure we approved token to router
-            if (!assetInfo.approvedToRouter) {
-                assetInfo.token.approve(address(router), MAX_UINT256);
-                assetInfo.approvedToRouter = true;
+            if (!collateral.approvedToRouter) {
+                collateral.token.approve(address(router), MAX_UINT256);
+                collateral.approvedToRouter = true;
             }
             
             // swap OGS out to THIS contract
@@ -349,15 +349,15 @@ contract OURODynamics {
     /**
      * @dev buy back collateral with OGS
      */
-    function buybackCollateral(CollateralInfo storage assetInfo, uint256 slotValue) internal {
+    function buybackCollateral(CollateralInfo storage collateral, uint256 slotValue) internal {
         uint256 collateralToBuyBack = slotValue
-                                        .mul(assetInfo.priceUnit)
-                                        .div(getAssetPrice(assetInfo.priceFeed));
+                                        .mul(collateral.priceUnit)
+                                        .div(getAssetPrice(collateral.priceFeed));
                                              
         // the path to swap collateral out
         address[] memory path = new address[](2);
         path[0] = address(ogsContract);
-        path[1] = address(assetInfo.token);
+        path[1] = address(collateral.token);
         
         // calc amount OGS required to swap out given collateral
         uint [] memory amounts = router.getAmountsIn(collateralToBuyBack, path);
@@ -372,7 +372,7 @@ contract OURODynamics {
             ogsApprovedToRouter = true;
         }
 
-        if (assetInfo.isNative) {
+        if (collateral.isNative) {
             // swap out native assets ETH, BNB with OGS to OURO contract
             router.swapTokensForExactETH(ogsRequired, collateralToBuyBack, path, address(ouroContract), block.timestamp.add(MAX_SWAP_LATENCY));
 
