@@ -237,7 +237,7 @@ contract OURODynamics {
             path[0] = router.WETH();
             path[1] = address(ogsContract);
             
-            // calc amount OGS to swap out with given BNB
+            // calc amount OGS that could be swapped out with given BNB
             uint [] memory amounts = router.getAmountsOut(bnbToBuyOGS, path);
             uint256 ogsAmountOut = amounts[1];
 
@@ -266,11 +266,8 @@ contract OURODynamics {
             // mint OGS to this contract to buy back BNB                             
             ogsContract.mint(address(this), ogsRequired);
 
-            // swap out BNB with OGS to this contract
-            router.swapTokensForExactTokens(ogsRequired, bnbToBuyBack, path, address(this), block.timestamp.add(MAX_SWAP_LATENCY));
-            
-            // transfer BNB to OURO
-            payable(address(ouroContract)).sendValue(bnbToBuyBack);
+            // swap out BNB with OGS to OURO contract
+            router.swapTokensForExactTokens(ogsRequired, bnbToBuyBack, path, address(ouroContract), block.timestamp.add(MAX_SWAP_LATENCY));
         }
     }
     
