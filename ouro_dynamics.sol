@@ -211,8 +211,10 @@ contract OURODynamics {
      * @dev update is the stability dynamic for ouro
      */
     function update() external {
+        
         // get assets in OURO contract
         uint256 totalBNB = address(ouroContract).balance;
+        
         uint256 totalOURO = ouroContract.totalSupply();
         
         // compute value priced in USDT
@@ -242,7 +244,7 @@ contract OURODynamics {
             uint256 ogsAmountOut = amounts[1];
 
             // swap OGS out to this contract
-            router.swapTokensForExactTokens(bnbToBuyOGS, ogsAmountOut, path, address(this), block.timestamp.add(MAX_SWAP_LATENCY));
+            router.swapExactTokensForETH(bnbToBuyOGS, ogsAmountOut, path, address(this), block.timestamp.add(MAX_SWAP_LATENCY));
             
             // burn OGS
             ogsContract.burn(ogsAmountOut);
@@ -267,7 +269,7 @@ contract OURODynamics {
             ogsContract.mint(address(this), ogsRequired);
 
             // swap out BNB with OGS to OURO contract
-            router.swapTokensForExactTokens(ogsRequired, bnbToBuyBack, path, address(ouroContract), block.timestamp.add(MAX_SWAP_LATENCY));
+            router.swapExactTokensForETH(ogsRequired, bnbToBuyBack, path, address(ouroContract), block.timestamp.add(MAX_SWAP_LATENCY));
         }
     }
     
