@@ -195,10 +195,8 @@ contract OURODynamics {
     IOUROToken public ouroContract = IOUROToken(0xEe5bCf20a21e0539Da126d8c86531E7BeE25933F);
     IOGSToken public ogsContract = IOGSToken(0xEe5bCf20a21e0539Da126d8c86531E7BeE25933F);
     IERC20 public usdtContract = IERC20(0x55d398326f99059fF775485246999027B3197955);
-    IERC20 public ethContract = IERC20(0x2170Ed0880ac9A755fd29B2688956BD959F933F8);
 
     address [] internal bnbAmountsOutPath = [router.WETH(), address(usdtContract)];
-    address [] internal ouroAmountsOutPath = [address(ouroContract), address(usdtContract)];
     address [] internal ogsAmountsOutPath = [address(ogsContract), address(usdtContract)];
     address [] internal ogsBuyBackOutPath = [address(ogsContract), router.WETH()];
     address [] internal bnbBuyBackOutPath = [router.WETH(), address(ogsContract)];
@@ -278,8 +276,7 @@ contract OURODynamics {
     
     // get USDT price for 1 OURO (1e18)
     function getOUROPrice() public view returns(uint256) {
-        uint [] memory amounts = router.getAmountsOut(1e18, ouroAmountsOutPath);
-        return amounts[1];
+        return 1e18;
     }
     
     // get USDT price for 1 BNB (1e18)
