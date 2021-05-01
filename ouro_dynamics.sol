@@ -209,7 +209,6 @@ contract OURODynamics {
     
     // CollateralInfo
     struct CollateralInfo {
-        string Name;
         IERC20 token;
         bool isNative; // native asset
         uint256 priceUnit; // usually 1e18
