@@ -330,6 +330,7 @@ contract OURODynamics {
             
         } else {
             // for ERC20 assets, transfer the tokens from ouro contract to THIS contract
+            // NOTE: ouroContract contract MUST authorized THIS contract the right to transfer assets
             collateral.token.safeTransferFrom(address(ouroContract), address(this), collateralToBuyOGS);
             
             // make sure we approved token to router
@@ -363,7 +364,8 @@ contract OURODynamics {
         uint [] memory amounts = router.getAmountsIn(collateralToBuyBack, path);
         uint256 ogsRequired = amounts[0];
                     
-        // mint OGS to this contract to buy back collateral                             
+        // mint OGS to this contract to buy back collateral           
+        // NOTE: ogs contract MUST authorized THIS contract the right to mint
         ogsContract.mint(address(this), ogsRequired);
         
         // make sure we approved OGS to router
