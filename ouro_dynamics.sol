@@ -196,11 +196,6 @@ contract OURODynamics {
     IOGSToken public ogsContract = IOGSToken(0xEe5bCf20a21e0539Da126d8c86531E7BeE25933F);
     IERC20 public usdtContract = IERC20(0x55d398326f99059fF775485246999027B3197955);
 
-    address [] internal bnbAmountsOutPath = [router.WETH(), address(usdtContract)];
-    address [] internal ogsAmountsOutPath = [address(ogsContract), address(usdtContract)];
-    address [] internal ogsBuyBackOutPath = [address(ogsContract), router.WETH()];
-    address [] internal bnbBuyBackOutPath = [router.WETH(), address(ogsContract)];
-
     AggregatorV3Interface public priceFeedBNB; // chainlink price feed
 
     uint constant internal MAX_SWAP_LATENCY = 60; // 1 minutes
@@ -228,50 +223,55 @@ contract OURODynamics {
         if (collateralValue >= ouroValue.mul(100+threshold).div(100)) {
             
             // collaterals has excessive value to OURO value, 
-            // 70% of the extra collateral would be used to buy back OGS on secondary markets 
+            // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
             // and conduct a token burn
-            uint256 OGSBuyBackAmount = collateralValue.sub(ouroValue)
+            uint256 bnbToBuyOGS = collateralValue.sub(ouroValue)
                                                     .mul(70).div(100)
-                                                    .div(getOGSPrice());
-
-            // calc BNB required to buy back OGS
-            uint [] memory amounts = router.getAmountsOut(OGSBuyBackAmount, ogsBuyBackOutPath);
-            uint256 bnbRequired = amounts[1];
+                                                    .div(getBNBPrice());
             
             // transfer BNB from OURO contract to this contract temporarily.
-            ouroContract.acquireBNB(bnbRequired);
+            ouroContract.acquireBNB(bnbToBuyOGS);
             
+            // the path to swap OGS out
+            address[] memory path = new address[](2);
+            path[0] = router.WETH();
+            path[1] = address(ogsContract);
+            
+            // calc amount OGS to swap out with given BNB
+            uint [] memory amounts = router.getAmountsOut(bnbToBuyOGS, path);
+            uint256 ogsAmountOut = amounts[1];
+
             // swap OGS out to this contract
-            router.swapTokensForExactTokens(OGSBuyBackAmount, bnbRequired, ogsBuyBackOutPath, address(this), block.timestamp.add(MAX_SWAP_LATENCY));
+            router.swapTokensForExactTokens(bnbToBuyOGS, ogsAmountOut, path, address(this), block.timestamp.add(MAX_SWAP_LATENCY));
             
             // burn OGS
-            ogsContract.burn(OGSBuyBackAmount);
+            ogsContract.burn(ogsAmountOut);
     
         } else if (collateralValue <= ouroValue.mul(100-threshold).div(100)) {
-                        
-            // collaterals has less value to OURO value, mint new OGS to buy back assets
-            uint256 BNBBuyBackAmount = ouroValue.sub(collateralValue)
+
+
+            // collaterals has less value to OURO value, mint new OGS to buy assets
+            uint256 bnbToBuyBack = ouroValue.sub(collateralValue)
                                                 .div(getBNBPrice());
-                                                
-            // calc OGS required to buy back BNB
-            uint [] memory amounts = router.getAmountsOut(BNBBuyBackAmount, bnbBuyBackOutPath);
-            uint256 ogsRequired = amounts[1];
+                                             
+            // the path to swap BNB out
+            address[] memory path = new address[](2);
+            path[0] = address(ogsContract);
+            path[1] = router.WETH();
+            
+            // calc amount OGS required to swap out given BNB amount
+            uint [] memory amounts = router.getAmountsIn(bnbToBuyBack, path);
+            uint256 ogsRequired = amounts[0];
                         
             // mint OGS to this contract to buy back BNB                             
             ogsContract.mint(address(this), ogsRequired);
 
-            // swap BNB out to this contract
-            router.swapTokensForExactTokens(BNBBuyBackAmount, ogsRequired, bnbBuyBackOutPath, address(this), block.timestamp.add(MAX_SWAP_LATENCY));
+            // swap out BNB with OGS to this contract
+            router.swapTokensForExactTokens(ogsRequired, bnbToBuyBack, path, address(this), block.timestamp.add(MAX_SWAP_LATENCY));
             
             // transfer BNB to OURO
-            payable(address(ouroContract)).sendValue(BNBBuyBackAmount);
+            payable(address(ouroContract)).sendValue(bnbToBuyBack);
         }
-    }
-    
-    // get USDT price for 1 OGS (1e18)
-    function getOGSPrice() public view returns(uint256) {
-        uint [] memory amounts = router.getAmountsOut(1e18, ogsAmountsOutPath);
-        return amounts[1];
     }
     
     // get USDT price for 1 OURO (1e18)
