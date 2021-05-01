@@ -312,7 +312,7 @@ contract OURODynamics {
         path[0] = address(assetInfo.token);
         path[1] = address(ogsContract);
         
-        // calc amount OGS that could be swapped out with given BNB
+        // calc amount OGS that could be swapped out with given collateral
         uint [] memory amounts = router.getAmountsOut(collateralToBuyOGS, path);
         uint256 ogsAmountOut = amounts[1];
         
@@ -355,7 +355,7 @@ contract OURODynamics {
         uint [] memory amounts = router.getAmountsIn(collateralToBuyBack, path);
         uint256 ogsRequired = amounts[0];
                     
-        // mint OGS to this contract to buy back BNB                             
+        // mint OGS to this contract to buy back collateral                             
         ogsContract.mint(address(this), ogsRequired);
 
         if (assetInfo.isNative) {
