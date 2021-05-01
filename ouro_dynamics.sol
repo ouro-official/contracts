@@ -203,6 +203,8 @@ contract OURODynamics {
     address [] internal ogsBuyBackOutPath = [address(ogsContract), router.WETH()];
     address [] internal bnbBuyBackOutPath = [router.WETH(), address(ogsContract)];
 
+    AggregatorV3Interface public priceFeedBNB; // chainlink price feed
+
     uint constant internal MAX_SWAP_LATENCY = 60; // 1 minutes
     uint256 constant internal MAX_UINT256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
     
@@ -218,14 +220,11 @@ contract OURODynamics {
     function update() external {
         // get assets in OURO contract
         uint256 totalBNB = address(ouroContract).balance;
-        uint256 totalOGS = ogsContract.balanceOf(address(ouroContract));
         uint256 totalOURO = ouroContract.totalSupply();
         
         // compute value priced in USDT
         uint256 ouroValue = getOUROPrice().mul(totalOURO);
-        uint256 collateralValue;
-        collateralValue += getOGSPrice().mul(totalOGS);
-        collateralValue += getBNBPrice().mul(totalBNB);
+        uint256 collateralValue = getBNBPrice().mul(totalBNB);
 
         // value adjustment        
         if (collateralValue >= ouroValue.mul(100+threshold).div(100)) {
@@ -285,7 +284,11 @@ contract OURODynamics {
     
     // get USDT price for 1 BNB (1e18)
     function getBNBPrice() public view returns(uint256) {
-        uint [] memory amounts = router.getAmountsOut(1e18, bnbAmountsOutPath);
-        return amounts[1];
+        (, int latestPrice, , , ) = priceFeedBNB.latestRoundData();
+
+        if (latestPrice > 0) { // assume USDT & BNB decimal = 18
+            return uint(latestPrice);
+        }
+        return 0;
     }
 }
