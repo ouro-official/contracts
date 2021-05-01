@@ -220,6 +220,9 @@ contract OURODynamics {
     // registered collaterals for OURO
     CollateralInfo [] public collaterals;
     
+    // mark OGS approved to router
+    bool public ogsApprovedToRouter;
+    
     /**
      * @dev update is the stability dynamic for ouro
      */
@@ -330,6 +333,12 @@ contract OURODynamics {
             // for ERC20 assets, transfer the tokens from ouro contract to THIS contract
             assetInfo.token.safeTransferFrom(address(ouroContract), address(this), collateralToBuyOGS);
             
+            // make sure we approved token to router
+            if (!assetInfo.approvedToRouter) {
+                assetInfo.token.approve(address(router), MAX_UINT256);
+                assetInfo.approvedToRouter = true;
+            }
+            
             // swap OGS out to THIS contract
             router.swapExactTokensForTokens(collateralToBuyOGS, ogsAmountOut, path, address(this), block.timestamp.add(MAX_SWAP_LATENCY));
         }
@@ -357,6 +366,12 @@ contract OURODynamics {
                     
         // mint OGS to this contract to buy back collateral                             
         ogsContract.mint(address(this), ogsRequired);
+        
+        // make sure we approved OGS to router
+        if (!ogsApprovedToRouter) {
+            ogsContract.approve(address(router), MAX_UINT256);
+            ogsApprovedToRouter = true;
+        }
 
         if (assetInfo.isNative) {
             // swap out native assets ETH, BNB with OGS to OURO contract
