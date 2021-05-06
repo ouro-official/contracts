@@ -559,7 +559,10 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
     
     /**
      * ======================================================================================
+     * 
      * @dev OURO's deposit & withdraw
+     * 
+     * ======================================================================================
      */
      
     IOUROToken public ouroContract = IOUROToken(0xEe5bCf20a21e0539Da126d8c86531E7BeE25933F);
@@ -576,7 +579,6 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
     // @dev ouro price 
     uint256 public ouroPrice;
 
-    
     /**
      * @dev user deposit assets and receive OURO
      * @notice for ERC20 tokens, user needs approve to this contract first
@@ -628,7 +630,7 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
     /**
      * @dev user swap his OURO to assets
      */
-    function withdraw(IERC20 token, uint256 amountOURO) external payable {
+    function withdraw(IERC20 token, uint256 amountAsset) external payable {
         // lookup asset price
         bool valid;
         CollateralInfo memory collateral;
@@ -641,51 +643,69 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
         }
         require(valid, "not in the collateral set");
 
-        // lookup asset price
-        uint256 unitPrice = getAssetPrice(collateral.priceFeed);
+        // lookup asset value in USDT
+        uint256 assetValueInUSDT = amountAsset
+                                                    .mul(getAssetPrice(collateral.priceFeed))
+                                                    .div(collateral.priceUnit);
+        // asset value in OURO
+        uint256 assetValueInOuro = assetValueInUSDT.mul(OURO_PRICE_UNIT)
+                                                    .div(ouroPrice);
+                                                    
         
-        // convert to OURO equivalent
-        uint256 assetsToReturn = amountOURO.mul(ouroPrice)
-                                        .mul(collateral.priceUnit)
-                                        .div(OURO_PRICE_UNIT)
-                                        .div(unitPrice);
+        // make sure user have enough OURO
+        require (balanceOf(msg.sender) >= assetValueInOuro, "not enough OURO");
+                                        
+        // check if we have insufficient assets to return to user
+        uint256 balance = token.balanceOf(address(this));
+        if (balance < amountAsset) {
+            // buy from swaps
+            uint256 assetsToBuy = amountAsset.sub(balance);
+            
+            // find how many OUROs required to swap assets out
+            address[] memory path = new address[](2);
+            path[0] = address(this);
+            path[1] = address(token);
+            
+            // calc amount OGS required to swap out given collateral
+            uint [] memory amounts = router.getAmountsIn(assetsToBuy, path);
+            uint256 ouroRequired = amounts[0];
+            
+            // make sure user have enough OURO to buy assets
+            require (balanceOf(msg.sender) >= assetValueInOuro, "not enough OURO to buy back"); 
+            
+            // make sure we approved OGS to router
+            if (!ogsApprovedToRouter) {
+                ogsContract.approve(address(router), MAX_UINT256);
+                ogsApprovedToRouter = true;
+            }
+            
+            // buy assets back to this contract
+            if (address(token) == router.WETH()) {
+                router.swapTokensForExactETH(assetsToBuy, ouroRequired, path, address(this), block.timestamp);
+            } else {
+                // swap out tokens out to OURO contract
+                router.swapTokensForExactTokens(assetsToBuy, ouroRequired, path, address(this), block.timestamp);
+            }
+        }
                                         
         // burn OURO
-        _burn(msg.sender, amountOURO);
+        _burn(msg.sender, assetValueInOuro);
         
         // transfer back assets
-        token.safeTransfer(msg.sender, assetsToReturn);
+        token.safeTransfer(msg.sender, amountAsset);
     }
-    
-    
+
+
+
+
     /**
-     * @dev buy back assets with OURO
+     * ======================================================================================
+     * 
+     * @dev OURO's stablizer
+     *
+     * ======================================================================================
      */
-    function buybackAssets(address assetAddress, uint256 OUROAmount, address to) internal {
-        // the path to swap collateral out
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = address(assetAddress);
-
-        // buy asset with the given ouro amount        
-        uint [] memory amounts = router.getAmountsOut(OUROAmount, path);
-
-        // make sure we approved OURO to router
-        if (!ouroApprovedToRouter) {
-            this.approve(address(router), MAX_UINT256);
-            ouroApprovedToRouter = true;
-        }
-
-        if (assetAddress == router.WETH()) {
-            router.swapTokensForExactETH(OUROAmount, amounts[1], path, to, block.timestamp);
-        } else {
-            // swap out tokens out to OURO contract
-            router.swapTokensForExactTokens(OUROAmount, amounts[1], path, to, block.timestamp);
-        }
-    }
-
-
-
+     
     // 1. The system will only mint new OGS and sell them for collateral when the value of the 
     //    assets held in the pool is more than 3% less than the value of the issued OURO.
     // 2. The system will only use excess collateral in the pool to conduct OGS buy back and 
@@ -778,9 +798,9 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
                                 
             // execute buyback
             if (buyOGS) {
-                buybackOGS(collateral, slotBuyBackValue);
+                buybackOGSWithCollateral(collateral, slotBuyBackValue);
             } else {
-                buybackCollateral(collateral, slotBuyBackValue);
+                buybackCollateralWithOGS(collateral, slotBuyBackValue);
             }
         }
     }
@@ -788,7 +808,7 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
     /**
      * @dev buy back OGS with collateral
      */
-    function buybackOGS(CollateralInfo storage collateral, uint256 slotValue) internal {
+    function buybackOGSWithCollateral(CollateralInfo storage collateral, uint256 slotValue) internal {
         uint256 collateralToBuyOGS = slotValue
                                         .mul(collateral.priceUnit)
                                         .div(getAssetPrice(collateral.priceFeed));
@@ -834,7 +854,7 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
     /**
      * @dev buy back collateral with OGS
      */
-    function buybackCollateral(CollateralInfo storage collateral, uint256 slotValue) internal {
+    function buybackCollateralWithOGS(CollateralInfo storage collateral, uint256 slotValue) internal {
         uint256 collateralToBuyBack = slotValue
                                         .mul(collateral.priceUnit)
                                         .div(getAssetPrice(collateral.priceFeed));
