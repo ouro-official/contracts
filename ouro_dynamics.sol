@@ -7,7 +7,7 @@ import "./library.sol";
 /**
  * @notice OURO stability dynamics 
  */
-contract OURODynamics is IOURODynamics {
+contract OURODynamics is IOURODynamics,Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     using Address for address payable;
@@ -42,6 +42,14 @@ contract OURODynamics is IOURODynamics {
     IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
     uint256 constant internal MAX_UINT256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
+    // try rebase for user's deposit and withdraw
+    modifier tryRebase() {
+        if (lastRebase + rebasePeriod >= block.timestamp) {
+            rebase();
+        }
+        _;    
+    }
+    
     /**
      * @dev find the given collateral info
      */
@@ -81,7 +89,10 @@ contract OURODynamics is IOURODynamics {
      * @dev user deposit assets and receive OURO
      * @notice users need approve() assets to this contract
      */
-    function deposit(IERC20 token, uint256 amountAsset) external payable {
+    function deposit(IERC20 token, uint256 amountAsset) external payable tryRebase {
+        // try execute a rebase
+    
+        
         (CollateralInfo memory collateral, bool valid) = findCollateral(token);
         require(valid, "not a collateral");
 
@@ -110,7 +121,7 @@ contract OURODynamics is IOURODynamics {
      * @dev user swap his OURO back to assets
      * @notice users need approve() OURO assets to this contract
      */
-    function withdraw(IERC20 token, uint256 amountAsset) external payable {
+    function withdraw(IERC20 token, uint256 amountAsset) external tryRebase {
         (CollateralInfo memory collateral, bool valid) = findCollateral(token);
         require(valid, "not a collateral");
         
@@ -170,7 +181,6 @@ contract OURODynamics is IOURODynamics {
 
 
 
-
     /**
      * ======================================================================================
      * 
@@ -184,6 +194,7 @@ contract OURODynamics is IOURODynamics {
     // 2. The system will only use excess collateral in the pool to conduct OGS buy back and 
     //    burn when the value of the assets held in the pool is 3% higher than the value of the issued OURO
     uint public threshold = 3;
+    uint public buyBackRatio = 70; // 70% to buy back OGS
     
     // CollateralInfo
     struct CollateralInfo {
@@ -199,11 +210,37 @@ contract OURODynamics is IOURODynamics {
     // mark OGS approved to router
     bool public ogsApprovedToRouter;
     
+    // record last Rebase time
+    uint public lastRebase = block.timestamp;
+    
+    // rebase period
+    uint public rebasePeriod = 24*60*60;
+ 
     /**
-     * @dev update is the stability dynamic for ouro
+     * set rebase period
      */
-    function update() external {
+    function setRebasePeriod(uint period) external onlyOwner {
+        require(period > 0);
+        rebasePeriod = period;
+    }
+    
+    /**
+     * rebase
+     */
+    function rebase() public {
+         // rebase period check
+        require(lastRebase + rebasePeriod < block.timestamp,"aggressive rebase");
+        _rebase();
+        lastRebase += rebasePeriod;
         
+        // log
+        emit Rebased(msg.sender);
+    }
+    
+    /**
+     * @dev rebase is the stability dynamic for ouro
+     */
+    function _rebase() internal {
         // get total collateral value(USDT)
         uint256 totalCollateralValue;
         for (uint i=0;i<collaterals.length;i++) {
@@ -236,7 +273,7 @@ contract OURODynamics is IOURODynamics {
             // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
             // and conduct a token burn
             valueDiff = totalCollateralValue.sub(totalOUROValue)
-                                                        .mul(70).div(100);
+                                                        .mul(buyBackRatio).div(100);
             buyOGS = true;
             
         } else if (totalCollateralValue <= totalOUROValue.mul(100-threshold).div(100)) {
@@ -380,4 +417,5 @@ contract OURODynamics is IOURODynamics {
      */
      event Deposit(address account, uint256 ouroAmount);
      event Withdraw(address account, address token, uint256 assetAmount);
+     event Rebased(address account);
 }
