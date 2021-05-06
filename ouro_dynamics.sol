@@ -215,7 +215,10 @@ contract OURODynamics is IOURODynamics,Ownable {
     
     // rebase period
     uint public rebasePeriod = 24*60*60;
- 
+
+    // multiplier
+    uint constant MULTIPLIER = 1e12;
+
     /**
      * set rebase period
      */
@@ -231,17 +234,18 @@ contract OURODynamics is IOURODynamics,Ownable {
          // rebase period check
         require(lastRebase + rebasePeriod < block.timestamp,"aggressive rebase");
         _rebase();
+        _adjustPrice();
         lastRebase += rebasePeriod;
         
         // log
         emit Rebased(msg.sender);
     }
     
+    
     /**
-     * @dev rebase is the stability dynamic for ouro
+     * @dev get total collatral value
      */
-    function _rebase() internal {
-        // get total collateral value(USDT)
+    function _getTotalCollateralValue() internal view returns(uint256) {
         uint256 totalCollateralValue;
         for (uint i=0;i<collaterals.length;i++) {
             CollateralInfo storage collateral = collaterals[i];
@@ -260,6 +264,15 @@ contract OURODynamics is IOURODynamics,Ownable {
             }
         }
         
+        return totalCollateralValue;
+    }
+    
+    /**
+     * @dev rebase is the stability dynamic for ouro
+     */
+    function _rebase() internal {
+        // get total collateral value(USDT)
+        uint256 totalCollateralValue = _getTotalCollateralValue();
         // get total OURO value(USDT)
         uint256 totalOUROValue = ouroContract.totalSupply()
                                         .mul(getPrice())
@@ -312,6 +325,29 @@ contract OURODynamics is IOURODynamics,Ownable {
             } else {
                 buybackCollateralWithOGS(collateral, slotBuyBackValue);
             }
+        }
+    }
+    
+    /**
+     * @dev default price adjustment after rebase
+     */
+    function _adjustPrice() internal {
+        // get total collateral value(USDT)
+        uint256 totalCollateralValue = _getTotalCollateralValue();
+        
+        // get total OURO value(USDT)
+        uint256 totalOUROValue = ouroContract.totalSupply()
+                                        .mul(getPrice())
+                                        .div(OURO_PRICE_UNIT);
+                                        
+
+        // OURO appreciation:
+        // new price := old price * (totalCollateralValue/totalOUROValue) * 100%
+        if (totalCollateralValue > totalOUROValue) {
+            ouroPrice = ouroPrice.mul(totalCollateralValue)
+                                    .mul(MULTIPLIER)
+                                    .div(totalOUROValue)
+                                    .div(MULTIPLIER);
         }
     }
     
