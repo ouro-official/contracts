@@ -625,6 +625,38 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
         _mint(msg.sender, ouroToMint);
     }
     
+    /**
+     * @dev user swap his OURO to assets
+     */
+    function withdraw(IERC20 token, uint256 amountOURO) external payable {
+        // lookup asset price
+        bool valid;
+        CollateralInfo memory collateral;
+        for (uint i=0;i<collaterals.length;i++) {
+            collateral = collaterals[i];
+            if (collateral.token == token ){
+                valid = true;
+                break;
+            }
+        }
+        require(valid, "not in the collateral set");
+
+        // lookup asset price
+        uint256 unitPrice = getAssetPrice(collateral.priceFeed);
+        
+        // convert to OURO equivalent
+        uint256 assetsToReturn = amountOURO.mul(ouroPrice)
+                                        .mul(collateral.priceUnit)
+                                        .div(OURO_PRICE_UNIT)
+                                        .div(unitPrice);
+                                        
+        // burn OURO
+        _burn(msg.sender, amountOURO);
+        
+        // transfer back assets
+        token.safeTransfer(msg.sender, assetsToReturn);
+    }
+    
     
     /**
      * @dev buy back assets with OURO
