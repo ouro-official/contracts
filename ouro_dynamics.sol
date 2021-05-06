@@ -41,6 +41,15 @@ contract OURODynamics is IOURODynamics,Ownable {
     
     IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
     uint256 constant internal MAX_UINT256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+    
+    // @dev issue schedule in million OURO
+    uint16 [] public issueSchedule = [10,30,50,70,100,150,200,300,400,500,650,800];
+    uint256 internal constant issueUnit = 1e18 * 1e6;
+    
+    // @dev scheduled issue from
+    uint256 public issueFrom = block.timestamp;
+    uint256 internal constant DAY = 86400;
+    uint256 internal constant MONTH = 30 * DAY;
 
     // try rebase for user's deposit and withdraw
     modifier tryRebase() {
@@ -90,8 +99,6 @@ contract OURODynamics is IOURODynamics,Ownable {
      * @notice users need approve() assets to this contract
      */
     function deposit(IERC20 token, uint256 amountAsset) external payable tryRebase {
-        // try execute a rebase
-    
         
         (CollateralInfo memory collateral, bool valid) = findCollateral(token);
         require(valid, "not a collateral");
@@ -104,6 +111,16 @@ contract OURODynamics is IOURODynamics,Ownable {
         
         // calc equivalent OURO value
         uint256 assetValueInOuro = lookupAssetOUROValue(collateral, amountAsset);
+        
+        // check issuance limit
+        uint month = block.timestamp.sub(issueFrom).div(MONTH);
+        if (month < issueSchedule.length) {
+            require(assetValueInOuro + ouroContract.totalSupply()
+                        <=
+                    uint256(issueSchedule[month]).mul(issueUnit),
+                    "issuance limited"
+            );
+        }
         
         // transfer token assets to this contract
         if (address(token) != router.WETH()) {
@@ -214,7 +231,7 @@ contract OURODynamics is IOURODynamics,Ownable {
     uint public lastRebase = block.timestamp;
     
     // rebase period
-    uint public rebasePeriod = 24*60*60;
+    uint public rebasePeriod = DAY;
 
     // multiplier
     uint constant MULTIPLIER = 1e12;
