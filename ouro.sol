@@ -32,11 +32,6 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
         
     // @dev ouro dynamcis's address
     address public ouroDynamicAddress;
-    
-    modifier onlyOURODynamic() {
-        require (msg.sender == ouroDynamicAddress, "OURO: access denied");
-        _;
-    }
 
     mapping(address => TimeLock) private _timelock;
 
