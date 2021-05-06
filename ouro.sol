@@ -641,11 +641,13 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
                 break;
             }
         }
-        require(valid, "not in the collateral set");
+        require(valid, "not a collateral");
 
         // lookup asset value in USDT
-        uint256 assetValueInUSDT = amountAsset
-                                                    .mul(getAssetPrice(collateral.priceFeed))
+        uint256 unitPrice = getAssetPrice(collateral.priceFeed);
+        
+        uint256 assetValueInUSDT =              amountAsset
+                                                    .mul(unitPrice)
                                                     .div(collateral.priceUnit);
         // asset value in OURO
         uint256 assetValueInOuro = assetValueInUSDT.mul(OURO_PRICE_UNIT)
@@ -666,12 +668,11 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
             path[0] = address(this);
             path[1] = address(token);
             
-            // calc amount OGS required to swap out given collateral
             uint [] memory amounts = router.getAmountsIn(assetsToBuy, path);
             uint256 ouroRequired = amounts[0];
             
             // make sure user have enough OURO to buy assets
-            require (balanceOf(msg.sender) >= assetValueInOuro, "not enough OURO to buy back"); 
+            require (balanceOf(msg.sender) >= assetValueInOuro, "insufficient OURO to buy back"); 
             
             // make sure we approved OGS to router
             if (!ogsApprovedToRouter) {
