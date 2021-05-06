@@ -14,8 +14,6 @@ contract OURODynamics is IOURODynamics {
     using SafeMath for uint256;
     using SafeERC20 for IOUROToken;
     using SafeERC20 for IOGSToken;
-     
-    bool public ouroApprovedToRouter;
     
     // @dev ouro price 
     uint256 public ouroPrice;
@@ -44,72 +42,29 @@ contract OURODynamics is IOURODynamics {
     IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
     uint256 constant internal MAX_UINT256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
-
     /**
-     * @dev user deposit assets and receive OURO
-     * @notice for ERC20 tokens, user needs approve to this contract first
+     * @dev find the given collateral info
      */
-    function deposit(IERC20 token, uint256 amount) external payable {
+    function findCollateral(IERC20 token) internal view returns (CollateralInfo memory, bool) {
         // lookup asset price
         bool valid;
         CollateralInfo memory collateral;
         for (uint i=0;i<collaterals.length;i++) {
             collateral = collaterals[i];
-            if (collateral.token == token ){
+            if (collateral.token == token){
                 valid = true;
                 break;
             }
         }
-        require(valid, "not in the collateral set");
-
-        uint256 ouroToMint;
-        if (address(token) == router.WETH()) {
-            // for native token, check msg.value only
-            require(msg.value > 0, "0 deposit");
-            amount = 0;
-            
-            // lookup asset price
-            uint256 unitPrice = getAssetPrice(collateral.priceFeed);
-            
-            // convert to OURO equivalent
-            ouroToMint = unitPrice.mul(msg.value)
-                                            .div(collateral.priceUnit)
-                                            .div(ouroPrice);
-        } else {
-            // transfer from user's balance
-            token.safeTransferFrom(msg.sender, address(this), amount);
-            
-            // lookup asset price
-            uint256 unitPrice = getAssetPrice(collateral.priceFeed);
-            
-            // convert to OURO equivalent
-            ouroToMint = unitPrice.mul(amount)
-                                            .div(collateral.priceUnit)
-                                            .div(ouroPrice);
-
-        }
-                                        
-        // mint to sender
-        ouroContract.mint(msg.sender, ouroToMint);
+        
+        return (collateral, valid);
     }
     
     /**
-     * @dev user swap his OURO to assets
+     * @dev find the given collateral info
      */
-    function withdraw(IERC20 token, uint256 amountAsset) external payable {
-        // lookup asset price
-        bool valid;
-        CollateralInfo memory collateral;
-        for (uint i=0;i<collaterals.length;i++) {
-            collateral = collaterals[i];
-            if (collateral.token == token ){
-                valid = true;
-                break;
-            }
-        }
-        require(valid, "not a collateral");
-
-        // lookup asset value in USDT
+    function lookupAssetOUROValue(CollateralInfo memory collateral, uint256 amountAsset) internal view returns (uint256 amountOURO) {
+              // lookup asset value in USDT
         uint256 unitPrice = getAssetPrice(collateral.priceFeed);
         
         uint256 assetValueInUSDT =              amountAsset
@@ -119,17 +74,70 @@ contract OURODynamics is IOURODynamics {
         uint256 assetValueInOuro = assetValueInUSDT.mul(OURO_PRICE_UNIT)
                                                     .div(ouroPrice);
                                                     
+        return assetValueInOuro;
+    }
+    
+    /**
+     * @dev user deposit assets and receive OURO
+     * @notice users need approve() assets to this contract
+     */
+    function deposit(IERC20 token, uint256 amountAsset) external payable {
+        (CollateralInfo memory collateral, bool valid) = findCollateral(token);
+        require(valid, "not a collateral");
+
+        // for native token, use msg.value instead
+        if (address(token) == router.WETH()) {
+            require(msg.value > 0, "0 deposit");
+            amountAsset = msg.value;
+        }
         
-        // make sure user have enough OURO
-        require (ouroContract.balanceOf(msg.sender) >= assetValueInOuro, "not enough OURO");
+        // calc equivalent OURO value
+        uint256 assetValueInOuro = lookupAssetOUROValue(collateral, amountAsset);
+        
+        // transfer token assets to this contract
+        if (address(token) != router.WETH()) {
+            token.safeTransferFrom(msg.sender, address(this), amountAsset);
+        }
                                         
+        // mint OURO to sender
+        ouroContract.mint(msg.sender, assetValueInOuro);
+        
+        // log
+        emit Deposit(msg.sender, assetValueInOuro);
+    }
+    
+    /**
+     * @dev user swap his OURO back to assets
+     * @notice users need approve() OURO assets to this contract
+     */
+    function withdraw(IERC20 token, uint256 amountAsset) external payable {
+        (CollateralInfo memory collateral, bool valid) = findCollateral(token);
+        require(valid, "not a collateral");
+        
+        // calc equivalent OURO value
+        uint256 assetValueInOuro = lookupAssetOUROValue(collateral, amountAsset);
+                                                    
         // check if we have insufficient assets to return to user
-        uint256 balance = token.balanceOf(address(this));
-        if (balance < amountAsset) {
-            // buy from swaps
-            uint256 assetsToBuy = amountAsset.sub(balance);
+        uint256 assetBalance = token.balanceOf(address(this));
+        
+        if (assetBalance >= amountAsset) {
             
-            // find how many OUROs required to swap assets out
+            // transfer OURO to this contract
+            ouroContract.safeTransferFrom(msg.sender, address(this), assetValueInOuro);
+            
+            // burn OURO
+            ouroContract.burn(assetValueInOuro);
+
+        } else {
+            
+            // if we don't have enough assets to return
+            // we buy extra assets from swaps with user's OURO
+            uint256 assetsToBuy = amountAsset.sub(assetBalance);
+            
+            // current asset value in ouro(in our vault)
+            uint256 currentAssetValueInOuro = lookupAssetOUROValue(collateral, assetBalance);
+    
+            // find how many extra OUROs required to swap assets out
             address[] memory path = new address[](2);
             path[0] = address(this);
             path[1] = address(token);
@@ -137,15 +145,9 @@ contract OURODynamics is IOURODynamics {
             uint [] memory amounts = router.getAmountsIn(assetsToBuy, path);
             uint256 ouroRequired = amounts[0];
             
-            // make sure user have enough OURO to buy assets
-            require (ouroContract.balanceOf(msg.sender) >= assetValueInOuro, "insufficient OURO to buy back"); 
-            
-            // make sure we approved OGS to router
-            if (!ogsApprovedToRouter) {
-                ogsContract.approve(address(router), MAX_UINT256);
-                ogsApprovedToRouter = true;
-            }
-            
+            // transfer total OURO to this contract
+            ouroContract.safeTransferFrom(msg.sender, address(this), ouroRequired.add(currentAssetValueInOuro));
+    
             // buy assets back to this contract
             if (address(token) == router.WETH()) {
                 router.swapTokensForExactETH(assetsToBuy, ouroRequired, path, address(this), block.timestamp);
@@ -153,13 +155,17 @@ contract OURODynamics is IOURODynamics {
                 // swap out tokens out to OURO contract
                 router.swapTokensForExactTokens(assetsToBuy, ouroRequired, path, address(this), block.timestamp);
             }
+            
+            // only burn the vault part
+            ouroContract.burn(currentAssetValueInOuro);
         }
-                                        
-        // burn user's OURO
-        ouroContract.burn(msg.sender, assetValueInOuro);
         
-        // transfer back assets
-        token.safeTransfer(msg.sender, amountAsset);
+        if (address(token) == router.WETH()) {
+            payable(msg.sender).sendValue(amountAsset);
+        } else {
+            // transfer back assets
+            token.safeTransfer(msg.sender, amountAsset);
+        }
     }
 
 
@@ -364,4 +370,14 @@ contract OURODynamics is IOURODynamics {
         }
         return 0;
     }
+    
+    /**
+     * ======================================================================================
+     * 
+     * @dev OURO's events
+     *
+     * ======================================================================================
+     */
+     event Deposit(address account, uint256 ouroAmount);
+     event Withdraw(address account, address token, uint256 assetAmount);
 }
