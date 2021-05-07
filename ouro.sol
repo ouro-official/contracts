@@ -13,6 +13,15 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
     using Address for address payable;
     using SafeMath for uint256;
 
+    IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
+    uint256 constant internal MAX_UINT256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+    
+    /**
+     * @dev For OURO transactions, 0.1% of the amount transacted will be collected as a fee, 
+     * and will be used to form LP tokens according to the value of the assets in the pool.
+     */
+    address public managerAccount;
+    
    /**
      * @dev Emitted when an account is set mintable
      */
@@ -29,9 +38,6 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
         require(mintableGroup[msg.sender], "OURO: not in mintable group");
         _;
     }
-        
-    // @dev ouro dynamcis's address
-    address public ouroDynamicAddress;
 
     mapping(address => TimeLock) private _timelock;
 
@@ -50,9 +56,27 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
         name = _name;
         symbol = _symbol;
         decimals = _decimals;
-        setMintable(owner(), true);
+        
+        managerAccount = owner(); // default manager at constructor
+        setMintable(owner(), true); // default mintable at constructor
         _mint(_msgSender(), _initialSupply * (10 ** uint256(_decimals)));
     }
+    
+    /**
+     * @notice set manager
+     */
+    function setManager(address manager) external onlyOwner {
+        managerAccount = manager;
+    }
+    
+    /**
+     * @dev Modifier to make a function callable only by manager
+     */
+    modifier onlyManager() {
+        require(msg.sender == address(managerAccount), "restricted");
+        _;
+    }
+    
     
     /**
      * @dev set or remove address to mintable group

@@ -1163,3 +1163,7 @@ interface IOURODynamics {
     function getPrice() external returns(uint256);
     
 }
+
+interface IFeeLP {
+    function formLP() external;
+}
