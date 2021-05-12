@@ -53,7 +53,7 @@ contract OURODynamics is IOURODynamics,Ownable {
 
     // try rebase for user's deposit and withdraw
     modifier tryRebase() {
-        if (lastRebase + rebasePeriod >= block.timestamp) {
+        if (lastRebaseTimestamp + rebasePeriod >= block.timestamp) {
             rebase();
         }
         _;    
@@ -226,7 +226,7 @@ contract OURODynamics is IOURODynamics,Ownable {
     struct CollateralInfo {
         IERC20 token;
         uint256 priceUnit; // usually 1e18
-        uint256 lastPrice; // record price of last day
+        uint256 lastPrice; // record latest collateral price
         AggregatorV3Interface priceFeed; // asset price feed for xxx/USDT
         bool approvedToRouter;
     }
@@ -238,7 +238,7 @@ contract OURODynamics is IOURODynamics,Ownable {
     bool public ogsApprovedToRouter;
     
     // record last Rebase time
-    uint public lastRebase = block.timestamp;
+    uint public lastRebaseTimestamp = block.timestamp;
     
     // rebase period
     uint public rebasePeriod = DAY;
@@ -259,10 +259,14 @@ contract OURODynamics is IOURODynamics,Ownable {
      */
     function rebase() public {
          // rebase period check
-        require(lastRebase + rebasePeriod < block.timestamp,"aggressive rebase");
+        require(lastRebaseTimestamp + rebasePeriod < block.timestamp,"aggressive rebase");
+        
+        // rebase collaterals
         _rebase();
-        _adjustPrice();
-        lastRebase += rebasePeriod;
+        // OURO price apprecation based on current collaterals
+        _appreciation();
+        // update time
+        lastRebaseTimestamp += rebasePeriod;
         
         // log
         emit Rebased(msg.sender);
@@ -315,7 +319,7 @@ contract OURODynamics is IOURODynamics,Ownable {
         // rebalance the collaterals
         _executeRebalance(buyOGS, valueDiff);
         
-        // finally we need to update the collateral prices after rebalancing
+        // finally we need to update all collateral prices after rebalancing
         _updateCollateralPrices();
     }
     
@@ -367,8 +371,8 @@ contract OURODynamics is IOURODynamics,Ownable {
     /**
      * @dev default price adjustment after rebase
      */
-    function _adjustPrice() internal {
-        // get total collateral value(USDT)
+    function _appreciation() internal {
+        // get total collateral value(USDT), again!
         uint256 totalCollateralValue = _getTotalCollateralValue();
         
         // get total OURO value(USDT)
@@ -376,12 +380,9 @@ contract OURODynamics is IOURODynamics,Ownable {
                                         .mul(getPrice())
                                         .div(OURO_PRICE_UNIT);
                                         
-
         // OURO appreciation:
         // new price := old price * (totalCollateralValue/totalOUROValue) * 100%
         if (totalCollateralValue > totalOUROValue) {
-            
-
             ouroPrice = ouroPrice.mul(totalCollateralValue)
                                     .mul(MULTIPLIER)
                                     .div(totalOUROValue)
