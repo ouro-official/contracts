@@ -270,7 +270,7 @@ contract OURODynamics is IOURODynamics,Ownable {
     
     
     /**
-     * @dev get total collatral value
+     * @dev get total collateral value
      */
     function _getTotalCollateralValue() internal view returns(uint256) {
         uint256 totalCollateralValue;
@@ -292,6 +292,46 @@ contract OURODynamics is IOURODynamics,Ownable {
         }
         
         return totalCollateralValue;
+    }
+    
+    /**
+     * @dev get total deviated collateral value
+     */
+    function _getTotalDeviatedValue(bool buyOGS) internal view returns(uint256) {
+        // count total deviated collateral value 
+        uint256 deviatedCollateralValue;
+        for (uint i=0;i<collaterals.length;i++) {
+            CollateralInfo storage collateral = collaterals[i];
+            
+            // check new price of the assets & omit those not deviated assets
+            uint256 newPrice = getAssetPrice(collateral.priceFeed);
+            if (buyOGS) {
+                //  omit assets deviated negatively
+                if (newPrice < collateral.lastPrice) {
+                    continue;
+                }
+            } else {
+                // omit assets deviated positively
+                if (newPrice > collateral.lastPrice) {
+                    continue;
+                }
+            }
+            
+            if (address(collateral.token) == router.WETH()) {
+                // native assets, such as:
+                // ETH on ethereum , BNB on binance smart chain
+                deviatedCollateralValue += getAssetPrice(collateral.priceFeed)
+                                        .mul(address(ouroContract).balance)
+                                        .div(collateral.priceUnit);
+            } else {
+                // ERC20 assets (tokens)
+                deviatedCollateralValue += getAssetPrice(collateral.priceFeed)
+                                        .mul(collateral.token.balanceOf(address(ouroContract)))
+                                        .div(collateral.priceUnit);
+            }
+        }
+        
+        return deviatedCollateralValue;
     }
     
     /**
@@ -346,38 +386,7 @@ contract OURODynamics is IOURODynamics,Ownable {
      * @dev value deviates, execute buy back operations
      */
     function _executeBuyBack(bool buyOGS, uint256 valueDiff) internal {
-        // count total deviated collateral value 
-        uint256 deviatedCollateralValue;
-        for (uint i=0;i<collaterals.length;i++) {
-            CollateralInfo storage collateral = collaterals[i];
-            
-            // check new price of the assets & omit those not deviated assets
-            uint256 newPrice = getAssetPrice(collateral.priceFeed);
-            if (buyOGS) {
-                //  omit assets deviated negatively
-                if (newPrice < collateral.lastPrice) {
-                    continue;
-                }
-            } else {
-                // omit assets deviated positively
-                if (newPrice > collateral.lastPrice) {
-                    continue;
-                }
-            }
-            
-            if (address(collateral.token) == router.WETH()) {
-                // native assets, such as:
-                // ETH on ethereum , BNB on binance smart chain
-                deviatedCollateralValue += getAssetPrice(collateral.priceFeed)
-                                        .mul(address(ouroContract).balance)
-                                        .div(collateral.priceUnit);
-            } else {
-                // ERC20 assets (tokens)
-                deviatedCollateralValue += getAssetPrice(collateral.priceFeed)
-                                        .mul(collateral.token.balanceOf(address(ouroContract)))
-                                        .div(collateral.priceUnit);
-            }
-        }
+        uint256 deviatedCollateralValue = _getTotalDeviatedValue(buyOGS);
         
         // buyback operations in pro-rata basis
         for (uint i=0;i<collaterals.length;i++) {
