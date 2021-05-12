@@ -93,7 +93,15 @@ contract OURODynamics is IOURODynamics,Ownable {
                                                     
         return assetValueInOuro;
     }
-    
+
+    /**
+     * ======================================================================================
+     * 
+     * @dev OURO's deposit & withdraw
+     *
+     * ======================================================================================
+     */
+     
     /**
      * @dev user deposit assets and receive OURO
      * @notice users need approve() assets to this contract
@@ -212,6 +220,7 @@ contract OURODynamics is IOURODynamics,Ownable {
     //    burn when the value of the assets held in the pool is 3% higher than the value of the issued OURO
     uint public threshold = 3;
     uint public buyBackRatio = 70; // 70% to buy back OGS
+    uint public appreciationLimit = 3; // 3 percent price apprecation limit
     
     // CollateralInfo
     struct CollateralInfo {
@@ -302,8 +311,20 @@ contract OURODynamics is IOURODynamics,Ownable {
             // collaterals has excessive value to OURO value, 
             // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
             // and conduct a token burn
-            valueDiff = totalCollateralValue.sub(totalOUROValue)
-                                                        .mul(buyBackRatio).div(100);
+            uint256 appreciationValue= totalCollateralValue.sub(totalOUROValue)
+                                                        .mul(buyBackRatio)
+                                                        .div(100);
+                                                        
+            // However, since there is a 3% limit on how much the OURO Default Exchange Price can increase per month, 
+            // only [100,000,000*0.03 = 3,000,000] BUSD worth of excess assets can be utilized. This 3,000,000 BUSD worth of 
+            // assets will remain in the Reserve Pool, while the remaining [50,000,000-3,000,000=47,000,000] BUSD worth 
+            // of assets will be used for OGS buyback and burns. 
+            uint256 limitValue = totalOUROValue.mul(appreciationLimit)
+                                                .div(100);
+                 
+            // use the smaller one to buy back OGS                               
+            valueDiff = appreciationValue < limitValue?appreciationValue:limitValue;
+            
             buyOGS = true;
             
         } else if (totalCollateralValue <= totalOUROValue.mul(100-threshold).div(100)) {
@@ -361,6 +382,8 @@ contract OURODynamics is IOURODynamics,Ownable {
         // OURO appreciation:
         // new price := old price * (totalCollateralValue/totalOUROValue) * 100%
         if (totalCollateralValue > totalOUROValue) {
+            
+
             ouroPrice = ouroPrice.mul(totalCollateralValue)
                                     .mul(MULTIPLIER)
                                     .div(totalOUROValue)
