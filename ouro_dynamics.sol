@@ -374,18 +374,21 @@ contract OURODynamics is IOURODynamics,Ownable {
         }
         
         // if no value diff found, return here, nothing should happen!
-        if (valueDiff == 0 ){
+        if (valueDiff == 0){
             return;
         }
         
-        // rebalance the account
-        _executeBuyBack(buyOGS, valueDiff);
+        // rebalance the collaterals
+        _executeRebalance(buyOGS, valueDiff);
+        
+        // finally we need to update the collateral prices after rebalancing
+        _updateCollateralPrices();
     }
     
     /**
      * @dev value deviates, execute buy back operations
      */
-    function _executeBuyBack(bool buyOGS, uint256 valueDiff) internal {
+    function _executeRebalance(bool buyOGS, uint256 valueDiff) internal {
         uint256 deviatedCollateralValue = _getTotalDeviatedValue(buyOGS);
         
         // buyback operations in pro-rata basis
@@ -414,6 +417,16 @@ contract OURODynamics is IOURODynamics,Ownable {
             } else {
                 buybackCollateralWithOGS(collateral, slotBuyBackValue);
             }
+        }
+    }
+    
+    /**
+     * @dev update prices to latest 
+     */
+    function _updateCollateralPrices() internal {
+        for (uint i=0;i<collaterals.length;i++) {
+            CollateralInfo storage collateral = collaterals[i];
+            collateral.lastPrice = getAssetPrice(collateral.priceFeed);
         }
     }
     
