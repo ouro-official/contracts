@@ -16,7 +16,13 @@ contract OURODynamics is IOURODynamics,Ownable {
     using SafeERC20 for IOGSToken;
     
     // @dev ouro price 
-    uint256 public ouroPrice;
+    uint256 public ouroPrice = 1e18; // current ouro price, initially 1 USDT on bsc
+    uint256 public ouroPriceAtMonthStart = 1e18; // ouro price at the begining of a monty, initially set to 1 USDT on bsc
+    uint256 public OURO_PRICE_UNIT = 1e18; // 1 OURO
+    
+    uint public appreciationLimit = 3; // 3 percent monthly apprecation limit
+    uint public ouroLastPriceUpdate = block.timestamp;
+    uint public ouroPriceUpdatePeriod = MONTH;
     
     /** 
      * @dev get system defined OURO price
@@ -37,8 +43,6 @@ contract OURODynamics is IOURODynamics,Ownable {
     IOGSToken public ogsContract = IOGSToken(0xEe5bCf20a21e0539Da126d8c86531E7BeE25933F);
     IERC20 public usdtContract = IERC20(0x55d398326f99059fF775485246999027B3197955);
 
-    uint256 public OURO_PRICE_UNIT = 1e18;
-    
     IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
     uint256 constant internal MAX_UINT256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
     
@@ -220,7 +224,6 @@ contract OURODynamics is IOURODynamics,Ownable {
     //    burn when the value of the assets held in the pool is 3% higher than the value of the issued OURO
     uint public threshold = 3;
     uint public buyBackRatio = 70; // 70% to buy back OGS
-    uint public appreciationLimit = 3; // 3 percent price apprecation limit
     
     // CollateralInfo
     struct CollateralInfo {
@@ -283,41 +286,52 @@ contract OURODynamics is IOURODynamics,Ownable {
                                         .mul(getPrice())
                                         .div(OURO_PRICE_UNIT);
         
-        // compute values diff
-        uint256 valueDiff;
+        // compute values deviates
+        uint256 valueDeviates;
         bool buyOGS;
         if (totalCollateralValue >= totalOUROValue.mul(100+threshold).div(100)) {
-            // collaterals has excessive value to OURO value, 
-            // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
-            // and conduct a token burn
-            uint256 appreciationValue= totalCollateralValue.sub(totalOUROValue)
-                                                        .mul(buyBackRatio)
-                                                        .div(100);
-                                                        
-            // However, since there is a 3% limit on how much the OURO Default Exchange Price can increase per month, 
-            // only [100,000,000*0.03 = 3,000,000] BUSD worth of excess assets can be utilized. This 3,000,000 BUSD worth of 
-            // assets will remain in the Reserve Pool, while the remaining [50,000,000-3,000,000=47,000,000] BUSD worth 
-            // of assets will be used for OGS buyback and burns. 
-            uint256 limitValue = totalOUROValue.mul(appreciationLimit)
-                                                .div(100);
-                 
-            // use the smaller one to buy back OGS                               
-            valueDiff = appreciationValue < limitValue?appreciationValue:limitValue;
-            
             buyOGS = true;
-            
+            // check if price has already reached monthly limit 
+            uint256 priceUpperLimit = ouroPriceAtMonthStart
+                                            .mul(100+appreciationLimit)
+                                            .div(100);
+                                            
+            if (ouroPrice > priceUpperLimit) {
+                valueDeviates = 0;
+            } else {
+                // collaterals has excessive value to OURO value, 
+                // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
+                // and conduct a token burn
+                uint256 appreciationValue= totalCollateralValue.sub(totalOUROValue)
+                                                            .mul(buyBackRatio)
+                                                            .div(100);
+                                                            
+                // However, since there is a 3% limit on how much the OURO Default Exchange Price can increase per month, 
+                // only [100,000,000*0.03 = 3,000,000] BUSD worth of excess assets can be utilized. This 3,000,000 BUSD worth of 
+                // assets will remain in the Reserve Pool, while the remaining [50,000,000-3,000,000=47,000,000] BUSD worth 
+                // of assets will be used for OGS buyback and burns. 
+                uint256 priceRaisePercentage = priceUpperLimit.sub(ouroPrice)
+                                                    .mul(MULTIPLIER)
+                                                    .div(ouroPrice);
+                
+                uint256 limitValue = totalOUROValue.mul(priceRaisePercentage)
+                                                    .div(MULTIPLIER);
+                     
+                // use the smaller one to buy back OGS                               
+                valueDeviates = appreciationValue < limitValue?appreciationValue:limitValue;
+            }
         } else if (totalCollateralValue <= totalOUROValue.mul(100-threshold).div(100)) {
             // collaterals has less value to OURO value, mint new OGS to buy assets
-            valueDiff = totalOUROValue.sub(totalCollateralValue);
+            valueDeviates = totalOUROValue.sub(totalCollateralValue);
         }
         
-        // if no value diff found, return here, nothing should happen!
-        if (valueDiff == 0){
+        // if no value deviates found, return here, nothing should happen!
+        if (valueDeviates == 0){
             return;
         }
         
         // rebalance the collaterals
-        _executeRebalance(buyOGS, valueDiff);
+        _executeRebalance(buyOGS, valueDeviates);
         
         // finally we need to update all collateral prices after rebalancing
         _updateCollateralPrices();
@@ -326,7 +340,7 @@ contract OURODynamics is IOURODynamics,Ownable {
     /**
      * @dev value deviates, execute buy back operations
      */
-    function _executeRebalance(bool buyOGS, uint256 valueDiff) internal {
+    function _executeRebalance(bool buyOGS, uint256 valueDeviates) internal {
         uint256 deviatedCollateralValue = _getTotalDeviatedValue(buyOGS);
         
         // buyback operations in pro-rata basis
@@ -346,7 +360,7 @@ contract OURODynamics is IOURODynamics,Ownable {
             }
             
             // calc pro-rata buy back value(in USDT) for this collateral
-            uint256 slotBuyBackValue = slotValue.mul(valueDiff)
+            uint256 slotBuyBackValue = slotValue.mul(valueDeviates)
                                         .div(deviatedCollateralValue);
                                 
             // execute different buyback operations
@@ -372,6 +386,11 @@ contract OURODynamics is IOURODynamics,Ownable {
      * @dev default price adjustment after rebase
      */
     function _appreciation() internal {
+        
+        if (block.timestamp < ouroLastPriceUpdate + ouroPriceUpdatePeriod) {
+            return;
+        }
+        
         // get total collateral value(USDT), again!
         uint256 totalCollateralValue = _getTotalCollateralValue();
         
