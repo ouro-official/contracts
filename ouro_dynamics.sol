@@ -306,12 +306,12 @@ contract OURODynamics is IOURODynamics,Ownable {
                 // assets will remain in the Reserve Pool, while the remaining [50,000,000-3,000,000=47,000,000] BUSD worth 
                 // of assets will be used for OGS buyback and burns. 
                 
-                // (limit - current ouro price) / ouroPriceAtMonthStart
-                // eg : (1.03 - 1.01) / 1.0 = 2%
+                // (limit - current ouro price) / ocurrent ouro price
+                // eg : (1.03 - 1.01) / 1.01 = 0.0198%
                 uint256 ouroRisingSpace = priceUpperLimit.sub(ouroPrice)  // non-negative substraction
                                                     .mul(MULTIPLIER)
-                                                    .div(ouroPriceAtMonthStart);
-                
+                                                    .div(ouroPrice);
+
                 // maxiumum values required to raise price to limit;
                 uint256 ouroApprecationValueLimit = ouroRisingSpace
                                                     .mul(totalOUROValue)
