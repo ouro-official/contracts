@@ -223,7 +223,7 @@ contract OURODynamics is IOURODynamics,Ownable {
     // 2. The system will only use excess collateral in the pool to conduct OGS buy back and 
     //    burn when the value of the assets held in the pool is 3% higher than the value of the issued OURO
     uint public threshold = 3;
-    uint public buyBackRatio = 70; // 70% to buy back OGS
+    uint public OGSbuyBackRatio = 70; // 70% to buy back OGS
     
     // CollateralInfo
     struct CollateralInfo {
@@ -319,7 +319,7 @@ contract OURODynamics is IOURODynamics,Ownable {
                 
                 // maximum excessive value usable (30%)
                 uint256 maximumUsableValue = excessiveValue
-                                                    .mul(100-buyBackRatio);
+                                                    .mul(100-OGSbuyBackRatio);
                 
                 // use the smaller one to appreciate OURO
                 uint256 valueToAppreciate = ouroApprecationValueLimit < maximumUsableValue?ouroApprecationValueLimit:maximumUsableValue;
