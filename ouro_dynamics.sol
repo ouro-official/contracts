@@ -266,8 +266,8 @@ contract OURODynamics is IOURODynamics,Ownable {
         
         // rebase collaterals
         _rebase();
-        // OURO price apprecation based on current collaterals
-        _appreciation();
+        // book keeping after rebase
+        _bookkeeping();
         // update time
         lastRebaseTimestamp += rebasePeriod;
         
@@ -287,54 +287,69 @@ contract OURODynamics is IOURODynamics,Ownable {
                                         .div(OURO_PRICE_UNIT);
         
         // compute values deviates
-        uint256 valueDeviates;
-        bool buyOGS;
         if (totalCollateralValue >= totalOUROValue.mul(100+threshold).div(100)) {
-            buyOGS = true;
+            // collaterals has excessive value to OURO value, 
+            // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
+            // and conduct a token burn
+            uint256 excessiveValue = totalCollateralValue.sub(totalOUROValue)
+                                                        .div(100);
+                                                        
             // check if price has already reached monthly limit 
             uint256 priceUpperLimit = ouroPriceAtMonthStart
                                             .mul(100+appreciationLimit)
                                             .div(100);
                                             
-            if (ouroPrice > priceUpperLimit) {
-                valueDeviates = 0;
-            } else {
-                // collaterals has excessive value to OURO value, 
-                // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
-                // and conduct a token burn
-                uint256 appreciationValue= totalCollateralValue.sub(totalOUROValue)
-                                                            .mul(buyBackRatio)
-                                                            .div(100);
-                                                            
+            // conduct a ouro default price change                                
+            if (ouroPrice < priceUpperLimit) {
                 // However, since there is a 3% limit on how much the OURO Default Exchange Price can increase per month, 
                 // only [100,000,000*0.03 = 3,000,000] BUSD worth of excess assets can be utilized. This 3,000,000 BUSD worth of 
                 // assets will remain in the Reserve Pool, while the remaining [50,000,000-3,000,000=47,000,000] BUSD worth 
                 // of assets will be used for OGS buyback and burns. 
-                uint256 priceRaisePercentage = priceUpperLimit.sub(ouroPrice)
-                                                    .mul(MULTIPLIER)
-                                                    .div(ouroPrice);
                 
-                uint256 limitValue = totalOUROValue.mul(priceRaisePercentage)
+                // (limit - current ouro price) / ouroPriceAtMonthStart
+                // eg : (1.03 - 1.01) / 1.0 = 2%
+                uint256 ouroRisingSpace = priceUpperLimit.sub(ouroPrice)  // non-negative substraction
+                                                    .mul(MULTIPLIER)
+                                                    .div(ouroPriceAtMonthStart);
+                
+                // maxiumum values required to raise price to limit;
+                uint256 ouroApprecationValueLimit = ouroRisingSpace
+                                                    .mul(totalOUROValue)
                                                     .div(MULTIPLIER);
-                     
-                // use the smaller one to buy back OGS                               
-                valueDeviates = appreciationValue < limitValue?appreciationValue:limitValue;
+                
+                // maximum excessive value usable (30%)
+                uint256 maximumUsableValue = excessiveValue
+                                                    .mul(100-buyBackRatio);
+                
+                // use the smaller one to appreciate OURO
+                uint256 valueToAppreciate = ouroApprecationValueLimit < maximumUsableValue?ouroApprecationValueLimit:maximumUsableValue;
+                
+                // value appreciation:
+                // ouroPrice = ouroPrice * (totalOUROValue + appreciateValue) / totalOUROValue
+                ouroPrice = ouroPrice.mul(totalOUROValue+valueToAppreciate).div(totalOUROValue);
+                
+                // substract excessiveValue
+                excessiveValue = excessiveValue.sub(valueToAppreciate);
             }
+            
+            if (excessiveValue > 0) {
+                // rebalance the collaterals
+                _executeRebalance(true, excessiveValue);
+                
+                // finally we need to update all collateral prices after rebalancing
+                _updateCollateralPrices();
+            }
+            
         } else if (totalCollateralValue <= totalOUROValue.mul(100-threshold).div(100)) {
             // collaterals has less value to OURO value, mint new OGS to buy assets
-            valueDeviates = totalOUROValue.sub(totalCollateralValue);
+            uint256 valueDeviates = totalOUROValue.sub(totalCollateralValue);
+            
+            // rebalance the collaterals
+            _executeRebalance(false, valueDeviates);
+            
+            // finally we need to update all collateral prices after rebalancing
+            _updateCollateralPrices();
         }
-        
-        // if no value deviates found, return here, nothing should happen!
-        if (valueDeviates == 0){
-            return;
-        }
-        
-        // rebalance the collaterals
-        _executeRebalance(buyOGS, valueDeviates);
-        
-        // finally we need to update all collateral prices after rebalancing
-        _updateCollateralPrices();
     }
     
     /**
@@ -383,30 +398,16 @@ contract OURODynamics is IOURODynamics,Ownable {
     }
     
     /**
-     * @dev default price adjustment after rebase
+     * @dev book keeping after rebase
      */
-    function _appreciation() internal {
-        
+    function _bookkeeping() internal {
         if (block.timestamp < ouroLastPriceUpdate + ouroPriceUpdatePeriod) {
             return;
         }
         
-        // get total collateral value(USDT), again!
-        uint256 totalCollateralValue = _getTotalCollateralValue();
-        
-        // get total OURO value(USDT)
-        uint256 totalOUROValue = ouroContract.totalSupply()
-                                        .mul(getPrice())
-                                        .div(OURO_PRICE_UNIT);
-                                        
-        // OURO appreciation:
-        // new price := old price * (totalCollateralValue/totalOUROValue) * 100%
-        if (totalCollateralValue > totalOUROValue) {
-            ouroPrice = ouroPrice.mul(totalCollateralValue)
-                                    .mul(MULTIPLIER)
-                                    .div(totalOUROValue)
-                                    .div(MULTIPLIER);
-        }
+        // update price for next month
+        ouroLastPriceUpdate = block.timestamp;
+        ouroPriceAtMonthStart = ouroPrice;
     }
        
     /**
