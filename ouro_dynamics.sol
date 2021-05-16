@@ -15,6 +15,11 @@ contract OURODynamics is IOURODynamics,Ownable {
     using SafeERC20 for IOUROToken;
     using SafeERC20 for IOGSToken;
     
+    // periods
+    uint256 internal constant HOUR = 60*60;
+    uint256 internal constant DAY = 24*HOUR;
+    uint256 internal constant MONTH = 30 * DAY;
+    
     // @dev ouro price 
     uint256 public ouroPrice = 1e18; // current ouro price, initially 1 USDT on bsc
     uint256 public ouroPriceAtMonthStart = 1e18; // ouro price at the begining of a monty, initially set to 1 USDT on bsc
@@ -52,8 +57,6 @@ contract OURODynamics is IOURODynamics,Ownable {
     
     // @dev scheduled issue from
     uint256 public issueFrom = block.timestamp;
-    uint256 internal constant DAY = 86400;
-    uint256 internal constant MONTH = 30 * DAY;
 
     // try rebase for user's deposit and withdraw
     modifier tryRebase() {
@@ -85,10 +88,10 @@ contract OURODynamics is IOURODynamics,Ownable {
      * @dev find the given collateral info
      */
     function lookupAssetOUROValue(CollateralInfo memory collateral, uint256 amountAsset) internal view returns (uint256 amountOURO) {
-              // lookup asset value in USDT
+        // lookup asset value in USDT
         uint256 unitPrice = getAssetPrice(collateral.priceFeed);
         
-        uint256 assetValueInUSDT =              amountAsset
+        uint256 assetValueInUSDT =  amountAsset
                                                     .mul(unitPrice)
                                                     .div(collateral.priceUnit);
         // asset value in OURO
