@@ -130,7 +130,7 @@ contract OURODynamics is IOURODynamics,Ownable {
         // check issuance limit
         uint month = block.timestamp.sub(issueFrom).div(MONTH);
         if (month < issueSchedule.length) {
-            require(assetValueInOuro + ouroContract.totalSupply()
+            require(assetValueInOuro + ouroContract.totalSupply() 
                         <=
                     uint256(issueSchedule[month]).mul(issueUnit),
                     "issuance limited"
@@ -496,11 +496,9 @@ contract OURODynamics is IOURODynamics,Ownable {
         uint256 ogsAmountOut = amounts[1];
         
         if (address(collateral.token) == router.WETH()) {
+            
             // swap OGS out with native assets to THIS contract
-            payable(address(router)).functionCallWithValue(
-                abi.encodeWithSelector(router.swapExactETHForTokens.selector, ogsAmountOut, path, address(this), block.timestamp),
-                collateralToBuyOGS
-            );
+            router.swapExactETHForTokens{value:collateralToBuyOGS}(ogsAmountOut, path, address(this), block.timestamp);
             
         } else {
             // for ERC20 assets, transfer the tokens from ouro contract to THIS contract
