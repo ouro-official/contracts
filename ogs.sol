@@ -5,9 +5,9 @@ pragma solidity 0.6.12;
 import "./library.sol";
 
 /**
- * @notice OURO token contract (ERC20)
+ * @notice OGS token contract (ERC20)
  */
-contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
+contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
     
     using SafeERC20 for IERC20;
     using SafeMath for uint;
@@ -27,7 +27,7 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
     mapping(address => bool) public mintableGroup;
     
     modifier onlyMintableGroup() {
-        require(mintableGroup[msg.sender], "OURO: not in mintable group");
+        require(mintableGroup[msg.sender], "OGS: not in mintable group");
         _;
     }
 
@@ -99,7 +99,7 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
      * `amount`.
      */
     function burnFrom(address account, uint256 amount) public {
-        uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "OURO: burn amount exceeds allowance");
+        uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "OGS: burn amount exceeds allowance");
 
         _approve(account, _msgSender(), decreasedAllowance);
         _burn(account, amount);
@@ -118,7 +118,7 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
      * @notice only Owner call
      */
     function release(address account, uint256 releaseAmount) public onlyOwner {
-        require(account != address(0), "OURO: release zero address");
+        require(account != address(0), "OGS: release zero address");
 
         TimeLock storage timelock = _timelock[account];
         timelock.amount = timelock.amount.sub(releaseAmount);
@@ -153,9 +153,9 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
      * - releaseTime.
      */
     function transferWithLock(address recipient, uint256 amount, uint256 releaseTime) public onlyOwner returns (bool) {
-        require(recipient != address(0), "OURO: lockup zero address");
-        require(releaseTime > block.timestamp, "OURO: release time before lock time");
-        require(_timelock[recipient].releaseTime == 0, "OURO: already locked");
+        require(recipient != address(0), "OGS: lockup zero address");
+        require(releaseTime > block.timestamp, "OGS: release time before lock time");
+        require(_timelock[recipient].releaseTime == 0, "OGS: already locked");
 
         TimeLock memory timelock = TimeLock({
             releaseTime : releaseTime,
@@ -172,8 +172,8 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
      * @notice that excessive gas consumption causes transaction revert
      */
     function batchTransfer(address[] memory recipients, uint256[] memory amounts) public {
-        require(recipients.length > 0, "OURO: least one recipient address");
-        require(recipients.length == amounts.length, "OURO: number of recipient addresses does not match the number of tokens");
+        require(recipients.length > 0, "OGS: least one recipient address");
+        require(recipients.length == amounts.length, "OGS: number of recipient addresses does not match the number of tokens");
 
         for(uint256 i = 0; i < recipients.length; ++i) {
             _transfer(_msgSender(), recipients[i], amounts[i]);
@@ -189,12 +189,12 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
      * - accounts must not trigger the locked `amount` during the locked period.
      */
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        require(!paused(), "OURO: token transfer while paused");
+        require(!paused(), "OGS: token transfer while paused");
 
         // Check whether the locked amount is triggered
         TimeLock storage timelock = _timelock[from];
         if(timelock.releaseTime != 0 && balanceOf(from).sub(amount) < timelock.amount) {
-            require(block.timestamp >= timelock.releaseTime, "OURO: current time is before from account release time");
+            require(block.timestamp >= timelock.releaseTime, "OGS: current time is before from account release time");
 
             // Update the locked `amount` if the current time reaches the release time
             timelock.amount = balanceOf(from).sub(amount);
