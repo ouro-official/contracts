@@ -15,7 +15,6 @@ contract AssetStaking is Ownable {
     using SafeERC20 for IOGSToken;
     using SafeMath for uint;
     
-    
     uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
     
     IERC20 public AssetContract; // the asset to stake
@@ -23,7 +22,7 @@ contract AssetStaking is Ownable {
     address public vTokenAddress; // venus vToken Address
     
     address public constant wbnbAddress = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-
+    address public constant Unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
 
     mapping (address => uint256) private _balances; // tracking staker's value
     mapping (address => uint256) internal _rewardBalance; // tracking staker's claimable reward tokens
@@ -49,6 +48,11 @@ contract AssetStaking is Ownable {
         AssetContract = assetContract; 
         OGSContract = ogsContract;
         vTokenAddress = vTokenAddress_;
+        
+        // enter venus market
+        address[] memory venusMarkets;
+        venusMarkets[0]= vTokenAddress_;
+        IVenusDistribution(Unitroller).enterMarkets(venusMarkets);
     }
 
     /**
@@ -204,11 +208,16 @@ contract AssetStaking is Ownable {
      * ======================================================================================
      * 
      * @dev Venus farming
+     * https://github.com/VenusProtocol/venus-config/blob/master/networks/testnet.json
+     * https://github.com/VenusProtocol/venus-config/blob/master/networks/mainnet.json
      *
      * ======================================================================================
      */
     bool public nativeToken = false;
     
+    /**
+     * @dev supply assets to venus and get vToken
+     */
     function _supply(uint256 amount) internal {
         if (nativeToken) {
             IVBNB(vTokenAddress).mint{value: amount}();
@@ -217,7 +226,10 @@ contract AssetStaking is Ownable {
         }
     }
     
-    function _removeSupply(uint256 _amount) internal {
-        IVToken(vTokenAddress).redeemUnderlying(_amount);
+    /**
+     * @dev remove supply buy redeeming vToken
+     */
+    function _removeSupply(uint256 amount) internal {
+        IVToken(vTokenAddress).redeemUnderlying(amount);
     }
 }

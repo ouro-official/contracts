@@ -1169,25 +1169,17 @@ interface IFeeLP {
 }
 
 interface IVenusDistribution {
-    function claimVenus(address holder) external;
+    function oracle() external view returns (address);
 
     function enterMarkets(address[] memory _vtokens) external;
-
     function exitMarket(address _vtoken) external;
+    function getAssetsIn(address account) external view returns (address[] memory);
 
-    function getAssetsIn(address account)
-        external
-        view
-        returns (address[] memory);
+    function markets(address vTokenAddress) external view returns (bool, uint, bool);
+    function getAccountLiquidity(address account) external view returns (uint, uint, uint);
 
-    function getAccountLiquidity(address account)
-        external
-        view
-        returns (
-            uint256,
-            uint256,
-            uint256
-        );
+    function claimVenus(address holder, address[] memory vTokens) external;
+    function venusSpeeds(address) external view returns (uint);
 }
 
 interface IWBNB is IERC20 {
@@ -1197,45 +1189,41 @@ interface IWBNB is IERC20 {
 }
 
 interface IVBNB {
+    function totalSupply() external view returns (uint);
+
     function mint() external payable;
-
-    function redeem(uint256 redeemTokens) external returns (uint256);
-
-    function redeemUnderlying(uint256 redeemAmount) external returns (uint256);
-
-    function borrow(uint256 borrowAmount) external returns (uint256);
-
+    function redeem(uint redeemTokens) external returns (uint);
+    function redeemUnderlying(uint redeemAmount) external returns (uint);
+    function borrow(uint borrowAmount) external returns (uint);
     function repayBorrow() external payable;
 
-    // function getAccountSnapshot(address account)
-    //     external
-    //     view
-    //     returns (
-    //         uint256,
-    //         uint256,
-    //         uint256,
-    //         uint256
-    //     );
+    function balanceOfUnderlying(address owner) external returns (uint);
+    function borrowBalanceCurrent(address account) external returns (uint);
+    function totalBorrowsCurrent() external returns (uint);
 
-    function balanceOfUnderlying(address owner) external returns (uint256);
+    function exchangeRateCurrent() external returns (uint);
+    function exchangeRateStored() external view returns (uint);
 
-    function borrowBalanceCurrent(address account) external returns (uint256);
+    function supplyRatePerBlock() external view returns (uint);
+    function borrowRatePerBlock() external view returns (uint);
 }
 
 interface IVToken is IERC20 {
     function underlying() external returns (address);
 
-    function mint(uint256 mintAmount) external returns (uint256);
+    function mint(uint mintAmount) external returns (uint);
+    function redeem(uint redeemTokens) external returns (uint);
+    function redeemUnderlying(uint redeemAmount) external returns (uint);
+    function borrow(uint borrowAmount) external returns (uint);
+    function repayBorrow(uint repayAmount) external returns (uint);
 
-    function redeem(uint256 redeemTokens) external returns (uint256);
+    function balanceOfUnderlying(address owner) external returns (uint);
+    function borrowBalanceCurrent(address account) external returns (uint);
+    function totalBorrowsCurrent() external returns (uint);
 
-    function redeemUnderlying(uint256 redeemAmount) external returns (uint256);
+    function exchangeRateCurrent() external returns (uint);
+    function exchangeRateStored() external view returns (uint);
 
-    function borrow(uint256 borrowAmount) external returns (uint256);
-
-    function repayBorrow(uint256 repayAmount) external returns (uint256);
-
-    function balanceOfUnderlying(address owner) external returns (uint256);
-
-    function borrowBalanceCurrent(address account) external returns (uint256);
+    function supplyRatePerBlock() external view returns (uint);
+    function borrowRatePerBlock() external view returns (uint);
 }
