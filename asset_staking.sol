@@ -215,7 +215,8 @@ contract AssetStaking is Ownable {
         // exchange XVS to assets
         address[] memory path = new address[](2);
         path[0] = xvsAddress;
-        path[1] = address(AssetContract);
+        path[1] = router.WETH(); // always use native assets to bridge
+        path[2] = address(AssetContract);
 
         // swap all XVS to assets
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
@@ -283,7 +284,6 @@ contract AssetStaking is Ownable {
         _lastRewardBlock = block.number;
             
         // accumulate reward shares
-        // 1. ogs share
         _accShares[_currentRound].ogsShare = roundShareOGS.add(_accShares[_currentRound-1].ogsShare); 
     }
     
