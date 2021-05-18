@@ -221,12 +221,11 @@ contract AssetStaking is Ownable {
         // swap all XVS to assets
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
         uint [] memory amounts = router.getAmountsOut(xvsAmount, path);
-        uint256 assetOut = amounts[1];
+        uint256 assetOut = amounts[2];
         
         if (isNativeToken) {
             // swap out native assets ETH, BNB with XVS
             router.swapTokensForExactETH(assetOut, xvsAmount, path, address(this), block.timestamp);
-
         } else {
             // swap out assets out
             router.swapTokensForExactTokens(assetOut, xvsAmount, path, address(this), block.timestamp);
