@@ -28,7 +28,7 @@ contract AssetStaking is Ownable {
     mapping (address => uint256) internal _rewardBalance; // tracking staker's claimable reward tokens
     uint256 private _totalStaked; // track total staked value
     
-    /// @dev initial block reward
+    /// @dev initial block reward set to 0
     uint256 public BlockReward = 0;
     
     /// @dev round index mapping to accumulate share.
@@ -42,7 +42,7 @@ contract AssetStaking is Ownable {
     
     constructor(IOGSToken ogsContract, IERC20 assetContract, address vTokenAddress_) public {
         if (address(assetContract) == wbnbAddress) {
-            nativeToken = true;
+            isNativeToken = true;
         }
         
         AssetContract = assetContract; 
@@ -213,13 +213,13 @@ contract AssetStaking is Ownable {
      *
      * ======================================================================================
      */
-    bool public nativeToken = false;
+    bool public isNativeToken = false;
     
     /**
      * @dev supply assets to venus and get vToken
      */
     function _supply(uint256 amount) internal {
-        if (nativeToken) {
+        if (isNativeToken) {
             IVBNB(vTokenAddress).mint{value: amount}();
         } else {
             IVToken(vTokenAddress).mint(amount);
