@@ -18,12 +18,20 @@ contract AssetStaking is Ownable {
     uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
     
     IERC20 public AssetContract; // the asset to stake
+    
+    IOUROToken public OUROContract; // the OURO token contract
     IOGSToken public OGSContract; // the OGS token contract
-    address public vTokenAddress; // venus vToken Address
+    address public immutable vTokenAddress; // venus vToken Address
     
     address public constant wbnbAddress = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-    address public constant Unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
+    address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
+    address public constant ouroDynamicsAddress = 0xfD36E2c2a6789Db23113685031d7F16329158384;
+    address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
 
+    // pancake router
+    IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
+    
+    address[] venusMarkets; // venus market, set at constructor
     mapping (address => uint256) private _balances; // tracking staker's value
     mapping (address => uint256) internal _rewardBalance; // tracking staker's claimable reward tokens
     uint256 private _totalStaked; // track total staked value
@@ -31,8 +39,14 @@ contract AssetStaking is Ownable {
     /// @dev initial block reward set to 0
     uint256 public BlockReward = 0;
     
+    /// @dev shares user can claim
+    struct Shares{
+        uint256 ouroShare;
+        uint256 ogsShare;
+    }
+    
     /// @dev round index mapping to accumulate share.
-    mapping (uint => uint) private _accShares;
+    mapping (uint => Shares) private _accShares;
     /// @dev mark staker's highest settled round.
     mapping (address => uint) private _settledRounds;
     /// @dev a monotonic increasing round index, STARTS FROM 1
@@ -41,7 +55,7 @@ contract AssetStaking is Ownable {
     uint256 private _lastRewardBlock = block.number;
     
     constructor(IOGSToken ogsContract, IERC20 assetContract, address vTokenAddress_) public {
-        if (address(assetContract) == wbnbAddress) {
+        if (address(assetContract) == router.WETH()) {
             isNativeToken = true;
         }
         
@@ -49,10 +63,8 @@ contract AssetStaking is Ownable {
         OGSContract = ogsContract;
         vTokenAddress = vTokenAddress_;
         
-        // enter venus market
-        address[] memory venusMarkets;
-        venusMarkets[0]= vTokenAddress_;
-        IVenusDistribution(Unitroller).enterMarkets(venusMarkets);
+        venusMarkets.push(vTokenAddress_);
+        IVenusDistribution(unitroller).enterMarkets(venusMarkets);
     }
 
     /**
@@ -117,12 +129,12 @@ contract AssetStaking is Ownable {
     /**
      * @notice sum unclaimed reward;
      */
-    function checkReward(address account) external view returns(uint256 rewards) {
+    function checkOGSReward(address account) external view returns(uint256 rewards) {
         uint accountCollateral = _balances[account];
         uint lastSettledRound = _settledRounds[account];
         
         // reward = settled rewards + unsettled rewards + newMined rewards
-        uint unsettledShare = _accShares[_currentRound-1].sub(_accShares[lastSettledRound]);
+        uint unsettledShare = _accShares[_currentRound-1].ogsShare.sub(_accShares[lastSettledRound].ogsShare);
         
         uint newMinedShare;
         if (_totalStaked > 0) {
@@ -161,7 +173,7 @@ contract AssetStaking is Ownable {
         uint newSettledRound = _currentRound - 1;
         
         // round rewards
-        uint roundReward = _accShares[newSettledRound].sub(_accShares[lastSettledRound])
+        uint roundReward = _accShares[newSettledRound].ogsShare.sub(_accShares[lastSettledRound].ogsShare)
                                 .mul(accountCollateral)
                                 .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER    
         
@@ -185,23 +197,94 @@ contract AssetStaking is Ownable {
         if (_totalStaked == 0) {
             return;
         }
+        
+        // ogs reward
+        _updateOGSReward();
+       
+        // ouro reward
+        _updateOuroReward();
+        
+        // next round setting                                 
+        _currentRound++;
+    }
+    
+    function _updateOuroReward() internal {
+        // setp 1. settle venus XVS reward
+        IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
+        
+        // exchange XVS to assets
+        address[] memory path = new address[](2);
+        path[0] = xvsAddress;
+        path[1] = address(AssetContract);
 
+        // swap all XVS to assets
+        uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
+        uint [] memory amounts = router.getAmountsOut(xvsAmount, path);
+        uint256 assetOut = amounts[1];
+        
+        if (isNativeToken) {
+            // swap out native assets ETH, BNB with XVS
+            router.swapTokensForExactETH(assetOut, xvsAmount, path, address(this), block.timestamp);
+
+        } else {
+            // swap out assets out
+            router.swapTokensForExactTokens(assetOut, xvsAmount, path, address(this), block.timestamp);
+        }
+
+        // step 2.check if farming has assets revenue        
+        uint256 underlyingBalance;
+         if (isNativeToken) {
+            underlyingBalance = IVBNB(vTokenAddress).balanceOfUnderlying(address(this));
+        } else {
+            underlyingBalance = IVToken(vTokenAddress).balanceOfUnderlying(address(this));
+        }
+        
+        // the diff is the assets revenue
+        uint256 asssetsRevenue;
+        if (underlyingBalance > _totalStaked) {
+            asssetsRevenue = underlyingBalance.sub(_totalStaked);
+            if (isNativeToken) {
+                IVBNB(vTokenAddress).redeemUnderlying(asssetsRevenue);
+            } else {
+                IVToken(vTokenAddress).redeemUnderlying(asssetsRevenue);
+            }
+        }
+        
+        // step 3. exchange above 2 types of revenue to OURO
+        uint256 totalRevenue = asssetsRevenue + assetOut;
+        uint256 ouroBalance = OUROContract.balanceOf(address(this));
+        if (isNativeToken) {
+            IOURODynamics(ouroDynamicsAddress).deposit{value:totalRevenue}(AssetContract, 0);
+        } else {
+            IOURODynamics(ouroDynamicsAddress).deposit(AssetContract, totalRevenue);
+        }
+        
+        // step 4. compute diff for new ouro and set share based on current stakers pro-rata
+        uint256 newMintedOuro = OUROContract.balanceOf(address(this)).sub(ouroBalance);
+                
+        // OURO share
+        uint roundShareOURO = newMintedOuro.mul(SHARE_MULTIPLIER)
+                                        .div(_totalStaked);
+                                        
+        // ouro revenue
+        _accShares[_currentRound].ouroShare = roundShareOURO.add(_accShares[_currentRound-1].ouroShare); 
+    }
+    
+    function _updateOGSReward() internal {
         // settle reward share for [_lastRewardBlock, block.number]
         uint blocksToReward = block.number.sub(_lastRewardBlock);
         uint mintedReward = BlockReward.mul(blocksToReward);
 
         // reward share
-        uint roundShare = mintedReward.mul(SHARE_MULTIPLIER)
+        uint roundShareOGS = mintedReward.mul(SHARE_MULTIPLIER)
                                         .div(_totalStaked);
-                                
+                                        
         // mark block rewarded;
         _lastRewardBlock = block.number;
             
-        // accumulate reward share
-        _accShares[_currentRound] = roundShare.add(_accShares[_currentRound-1]); 
-       
-        // next round setting                                 
-        _currentRound++;
+        // accumulate reward shares
+        // 1. ogs share
+        _accShares[_currentRound].ogsShare = roundShareOGS.add(_accShares[_currentRound-1].ogsShare); 
     }
     
     /**
