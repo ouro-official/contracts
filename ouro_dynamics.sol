@@ -16,9 +16,7 @@ contract OURODynamics is IOURODynamics,Ownable {
     using SafeERC20 for IOGSToken;
     
     // periods
-    uint256 internal constant HOUR = 60*60;
-    uint256 internal constant DAY = 24*HOUR;
-    uint256 internal constant MONTH = 30 * DAY;
+    uint256 internal constant MONTH = 30 days;
     
     // @dev ouro price 
     uint256 public ouroPrice = 1e18; // current ouro price, initially 1 USDT on bsc
@@ -51,7 +49,7 @@ contract OURODynamics is IOURODynamics,Ownable {
     IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
     uint256 constant internal MAX_UINT256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
     
-    // @dev issue schedule in million OURO
+    // @dev issue schedule in million(1e6) OURO
     uint16 [] public issueSchedule = [10,30,50,70,100,150,200,300,400,500,650,800];
     uint256 internal constant issueUnit = 1e18 * 1e6;
     
@@ -64,41 +62,6 @@ contract OURODynamics is IOURODynamics,Ownable {
             rebase();
         }
         _;    
-    }
-    
-    /**
-     * @dev find the given collateral info
-     */
-    function findCollateral(IERC20 token) internal view returns (CollateralInfo memory, bool) {
-        // lookup asset price
-        bool valid;
-        CollateralInfo memory collateral;
-        for (uint i=0;i<collaterals.length;i++) {
-            collateral = collaterals[i];
-            if (collateral.token == token){
-                valid = true;
-                break;
-            }
-        }
-        
-        return (collateral, valid);
-    }
-    
-    /**
-     * @dev find the given collateral info
-     */
-    function lookupAssetOUROValue(CollateralInfo memory collateral, uint256 amountAsset) internal view returns (uint256 amountOURO) {
-        // lookup asset value in USDT
-        uint256 unitPrice = getAssetPrice(collateral.priceFeed);
-        
-        uint256 assetValueInUSDT =  amountAsset
-                                                    .mul(unitPrice)
-                                                    .div(collateral.priceUnit);
-        // asset value in OURO
-        uint256 assetValueInOuro = assetValueInUSDT.mul(OURO_PRICE_UNIT)
-                                                    .div(ouroPrice);
-                                                    
-        return assetValueInOuro;
     }
 
     /**
@@ -113,7 +76,7 @@ contract OURODynamics is IOURODynamics,Ownable {
      * @dev user deposit assets and receive OURO
      * @notice users need approve() assets to this contract
      */
-    function deposit(IERC20 token, uint256 amountAsset) external payable tryRebase {
+    function deposit(IERC20 token, uint256 amountAsset) external override payable tryRebase {
         
         (CollateralInfo memory collateral, bool valid) = findCollateral(token);
         require(valid, "not a collateral");
@@ -153,7 +116,7 @@ contract OURODynamics is IOURODynamics,Ownable {
      * @dev user swap his OURO back to assets
      * @notice users need approve() OURO assets to this contract
      */
-    function withdraw(IERC20 token, uint256 amountAsset) external tryRebase {
+    function withdraw(IERC20 token, uint256 amountAsset) external override tryRebase {
         (CollateralInfo memory collateral, bool valid) = findCollateral(token);
         require(valid, "not a collateral");
         
@@ -211,8 +174,41 @@ contract OURODynamics is IOURODynamics,Ownable {
         }
     }
 
-
-
+    /**
+     * @dev find the given collateral info
+     */
+    function findCollateral(IERC20 token) internal view returns (CollateralInfo memory, bool) {
+        // lookup asset price
+        bool valid;
+        CollateralInfo memory collateral;
+        for (uint i=0;i<collaterals.length;i++) {
+            collateral = collaterals[i];
+            if (collateral.token == token){
+                valid = true;
+                break;
+            }
+        }
+        
+        return (collateral, valid);
+    }
+    
+    /**
+     * @dev find the given collateral info
+     */
+    function lookupAssetOUROValue(CollateralInfo memory collateral, uint256 amountAsset) internal view returns (uint256 amountOURO) {
+        // lookup asset value in USDT
+        uint256 unitPrice = getAssetPrice(collateral.priceFeed);
+        
+        uint256 assetValueInUSDT =  amountAsset
+                                                    .mul(unitPrice)
+                                                    .div(collateral.priceUnit);
+        // asset value in OURO
+        uint256 assetValueInOuro = assetValueInUSDT.mul(OURO_PRICE_UNIT)
+                                                    .div(ouroPrice);
+                                                    
+        return assetValueInOuro;
+    }
+    
     /**
      * ======================================================================================
      * 
@@ -247,7 +243,7 @@ contract OURODynamics is IOURODynamics,Ownable {
     uint public lastRebaseTimestamp = block.timestamp;
     
     // rebase period
-    uint public rebasePeriod = DAY;
+    uint public rebasePeriod = 1 days;
 
     // multiplier
     uint constant MULTIPLIER = 1e12;
