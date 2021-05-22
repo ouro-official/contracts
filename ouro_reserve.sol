@@ -15,33 +15,24 @@ contract OUROReserve is IOUROReserve,Ownable {
     using SafeERC20 for IOUROToken;
     using SafeERC20 for IOGSToken;
     
-    // periods
-    uint256 internal constant MONTH = 30 days;
-    
+    /**
+     * ======================================================================================
+     * 
+     * SHARED SETTINGS
+     * 
+     * ======================================================================================
+     */
+
     // @dev ouro price 
     uint256 public ouroPrice = 1e18; // current ouro price, initially 1 USDT on bsc
     uint256 public ouroPriceAtMonthStart = 1e18; // ouro price at the begining of a monty, initially set to 1 USDT on bsc
     uint256 public OURO_PRICE_UNIT = 1e18; // 1 OURO
     
+    uint256 internal constant MONTH = 30 days;
     uint public appreciationLimit = 3; // 3 percent monthly apprecation limit
     uint public ouroLastPriceUpdate = block.timestamp;
     uint public ouroPriceUpdatePeriod = MONTH;
-    
-    /** 
-     * @dev get system defined OURO price
-     */
-    function getPrice() public override returns(uint256) {
-        return ouroPrice;
-    }
-    
-    /**
-     * ======================================================================================
-     * 
-     * @dev OURO's deposit & withdraw
-     * 
-     * ======================================================================================
-     */
-     
+
     IOUROToken public ouroContract = IOUROToken(0xEe5bCf20a21e0539Da126d8c86531E7BeE25933F);
     IOGSToken public ogsContract = IOGSToken(0xEe5bCf20a21e0539Da126d8c86531E7BeE25933F);
     IERC20 public usdtContract = IERC20(0x55d398326f99059fF775485246999027B3197955);
@@ -67,11 +58,18 @@ contract OUROReserve is IOUROReserve,Ownable {
     /**
      * ======================================================================================
      * 
-     * @dev OURO's deposit & withdraw
+     * OURO's collateral deposit & withdraw
      *
      * ======================================================================================
      */
-     
+        
+    /** 
+     * @dev get system defined OURO price
+     */
+    function getPrice() public override returns(uint256) {
+        return ouroPrice;
+    }
+    
     /**
      * @dev user deposit assets and receive OURO
      * @notice users need approve() assets to this contract
@@ -214,7 +212,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     /**
      * ======================================================================================
      * 
-     * @dev OURO's stablizer
+     * OURO's stablizer
      *
      * ======================================================================================
      */
@@ -570,7 +568,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     /**
      * ======================================================================================
      * 
-     * @dev OURO's events
+     * OURO's events
      *
      * ======================================================================================
      */
