@@ -146,11 +146,13 @@ contract OURODynamics is IOURODynamics,Ownable {
             // find how many extra OUROs required to swap assets out
             address[] memory path = new address[](2);
             path[0] = address(this);
+            path[1] = router.WETH(); // always use native assets to bridge
             path[1] = address(token);
             
             uint [] memory amounts = router.getAmountsIn(assetsToBuy, path);
             uint256 ouroRequired = amounts[0];
             
+            // @notice user needs sufficient OURO to swap assets out
             // transfer total OURO to this contract
             ouroContract.safeTransferFrom(msg.sender, address(this), ouroRequired.add(currentAssetValueInOuro));
     
