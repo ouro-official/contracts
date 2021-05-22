@@ -24,12 +24,12 @@ contract OUROReserve is IOUROReserve,Ownable {
      */
 
     // @dev ouro price 
-    uint256 public ouroPrice = 1e18; // current ouro price, initially 1 USDT on bsc
-    uint256 public ouroPriceAtMonthStart = 1e18; // ouro price at the begining of a monty, initially set to 1 USDT on bsc
-    uint256 public OURO_PRICE_UNIT = 1e18; // 1 OURO
+    uint256 public ouroPrice = 1e18; // current ouro price, initially 1 OURO = 1 USDT
+    uint256 public ouroPriceAtMonthStart = 1e18; // ouro price at the begining of a month, initially set to 1 USDT
+    uint256 public OURO_PRICE_UNIT = 1e18; // 1 OURO = 1e18
     
     uint256 internal constant MONTH = 30 days;
-    uint public appreciationLimit = 3; // 3 percent monthly apprecation limit
+    uint public appreciationLimit = 3; // 3 percent monthly OURO price appreciation limit
     uint public ouroLastPriceUpdate = block.timestamp;
     uint public ouroPriceUpdatePeriod = MONTH;
 
@@ -76,10 +76,11 @@ contract OUROReserve is IOUROReserve,Ownable {
      */
     function deposit(IERC20 token, uint256 amountAsset) external override payable tryRebase {
         
+        // locate collateral
         (CollateralInfo memory collateral, bool valid) = findCollateral(token);
-        require(valid, "not a collateral");
+        require(valid, "not a valid collateral");
 
-        // for native token, use msg.value instead
+        // for native token, omit amountAsset and use msg.value instead
         if (address(token) == router.WETH()) {
             require(msg.value > 0, "0 deposit");
             amountAsset = msg.value;
@@ -88,17 +89,18 @@ contract OUROReserve is IOUROReserve,Ownable {
         // calc equivalent OURO value
         uint256 assetValueInOuro = lookupAssetOUROValue(collateral, amountAsset);
         
-        // check issuance limit
-        uint month = block.timestamp.sub(issueFrom).div(MONTH);
-        if (month < issueSchedule.length) {
+        // check monthly OURO issuance limit
+        uint monthN = block.timestamp.sub(issueFrom).div(MONTH);
+        if (monthN < issueSchedule.length) { // still needs control
             require(assetValueInOuro + ouroContract.totalSupply() 
                         <=
-                    uint256(issueSchedule[month]).mul(issueUnit),
+                    uint256(issueSchedule[monthN]).mul(issueUnit),
                     "issuance limited"
             );
         }
         
         // transfer token assets to this contract
+        // @notice for ERC20 assets, users need to approve() to this reserve contract 
         if (address(token) != router.WETH()) {
             token.safeTransferFrom(msg.sender, address(this), amountAsset);
         }
@@ -115,21 +117,24 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @notice users need approve() OURO assets to this contract
      */
     function withdraw(IERC20 token, uint256 amountAsset) external override tryRebase {
+        
+        // locate collateral
         (CollateralInfo memory collateral, bool valid) = findCollateral(token);
         require(valid, "not a collateral");
         
         // calc equivalent OURO value
         uint256 assetValueInOuro = lookupAssetOUROValue(collateral, amountAsset);
                                                     
-        // check if we have insufficient assets to return to user
+        // check if we have sufficient assets to return to user
         uint256 assetBalance = token.balanceOf(address(this));
         
+        // perform OURO token burn
         if (assetBalance >= amountAsset) {
             
-            // transfer OURO to this contract
+            // sufficent asset satisfied! transfer user's OURO to this contract directly, 
             ouroContract.safeTransferFrom(msg.sender, address(this), assetValueInOuro);
             
-            // burn OURO
+            // and burn OURO.
             ouroContract.burn(assetValueInOuro);
 
         } else {
@@ -166,6 +171,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             ouroContract.burn(currentAssetValueInOuro);
         }
         
+        // finally we transfer the assets back to user
         if (address(token) == router.WETH()) {
             payable(msg.sender).sendValue(amountAsset);
         } else {
@@ -196,13 +202,15 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev find the given collateral info
      */
     function lookupAssetOUROValue(CollateralInfo memory collateral, uint256 amountAsset) internal view returns (uint256 amountOURO) {
-        // lookup asset value in USDT
-        uint256 unitPrice = getAssetPrice(collateral.priceFeed);
+        // get asset value in USDT
+        uint256 assetUnitPrice = getAssetPrice(collateral.priceFeed);
         
-        uint256 assetValueInUSDT =  amountAsset
-                                                    .mul(unitPrice)
-                                                    .div(collateral.priceUnit);
-        // asset value in OURO
+        // compute total USDT value
+        uint256 assetValueInUSDT = amountAsset
+                                                    .mul(assetUnitPrice)
+                                                    .div(collateral.assetUnit);
+                                                    
+        // convert asset USDT value to OURO value
         uint256 assetValueInOuro = assetValueInUSDT.mul(OURO_PRICE_UNIT)
                                                     .div(ouroPrice);
                                                     
@@ -227,7 +235,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     // CollateralInfo
     struct CollateralInfo {
         IERC20 token;
-        uint256 priceUnit; // usually 1e18
+        uint256 assetUnit; // usually 1e18
         uint256 lastPrice; // record latest collateral price
         AggregatorV3Interface priceFeed; // asset price feed for xxx/USDT
         bool approvedToRouter;
@@ -365,12 +373,12 @@ contract OUROReserve is IOUROReserve,Ownable {
             if (address(collateral.token) == router.WETH()) {
                 slotValue = getAssetPrice(collateral.priceFeed)
                                         .mul(address(ouroContract).balance)
-                                        .div(collateral.priceUnit);
+                                        .div(collateral.assetUnit);
                                     
             } else {
                 slotValue = getAssetPrice(collateral.priceFeed)
                                         .mul(collateral.token.balanceOf(address(ouroContract)))
-                                        .div(collateral.priceUnit);
+                                        .div(collateral.assetUnit);
             }
             
             // calc pro-rata buy back value(in USDT) for this collateral
@@ -422,12 +430,12 @@ contract OUROReserve is IOUROReserve,Ownable {
                 // ETH on ethereum , BNB on binance smart chain
                 totalCollateralValue += getAssetPrice(collateral.priceFeed)
                                         .mul(address(ouroContract).balance)
-                                        .div(collateral.priceUnit);
+                                        .div(collateral.assetUnit);
             } else {
                 // ERC20 assets (tokens)
                 totalCollateralValue += getAssetPrice(collateral.priceFeed)
                                         .mul(collateral.token.balanceOf(address(ouroContract)))
-                                        .div(collateral.priceUnit);
+                                        .div(collateral.assetUnit);
             }
         }
         
@@ -462,12 +470,12 @@ contract OUROReserve is IOUROReserve,Ownable {
                 // ETH on ethereum , BNB on binance smart chain
                 deviatedCollateralValue += getAssetPrice(collateral.priceFeed)
                                         .mul(address(ouroContract).balance)
-                                        .div(collateral.priceUnit);
+                                        .div(collateral.assetUnit);
             } else {
                 // ERC20 assets (tokens)
                 deviatedCollateralValue += getAssetPrice(collateral.priceFeed)
                                         .mul(collateral.token.balanceOf(address(ouroContract)))
-                                        .div(collateral.priceUnit);
+                                        .div(collateral.assetUnit);
             }
         }
         
@@ -479,7 +487,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      */
     function _buybackOGSWithCollateral(CollateralInfo storage collateral, uint256 slotValue) internal {
         uint256 collateralToBuyOGS = slotValue
-                                        .mul(collateral.priceUnit)
+                                        .mul(collateral.assetUnit)
                                         .div(getAssetPrice(collateral.priceFeed));
 
         // the path to swap OGS out
@@ -520,7 +528,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      */
     function _buybackCollateralWithOGS(CollateralInfo storage collateral, uint256 slotValue) internal {
         uint256 collateralToBuyBack = slotValue
-                                        .mul(collateral.priceUnit)
+                                        .mul(collateral.assetUnit)
                                         .div(getAssetPrice(collateral.priceFeed));
                                              
         // the path to swap collateral out
@@ -553,14 +561,18 @@ contract OUROReserve is IOUROReserve,Ownable {
     }
     
     /**
-     * @dev get asset price for 1 price unit
-     * @notice DO NOT div by ASSET PRICE HERE
+     * @dev get asset price in USDT(decimal=8) for 1 unit of asset
      */
     function getAssetPrice(AggregatorV3Interface feed) public view returns(uint256) {
+        // always align the price to BUSD decimal, which is 1e18
+        uint256 priceAlignMultiplier = 1e18 / (10**uint256(feed.decimals()));
+        
+        // query price from chainlink
         (, int latestPrice, , , ) = feed.latestRoundData();
 
+        // avert negative price
         if (latestPrice > 0) {
-            return uint(latestPrice);
+            return uint256(latestPrice).mul(priceAlignMultiplier);
         }
         return 0;
     }
