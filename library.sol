@@ -1159,9 +1159,10 @@ interface IOUROToken is IERC20 {
     function burn(uint256 amount) external;
 }
 
-interface IOURODynamics {
+interface IOUROReserve {
     function getPrice() external returns(uint256);
-    
+    function deposit(IERC20 token, uint256 amountAsset) external payable;
+    function withdraw(IERC20 token, uint256 amountAsset) external;
 }
 
 interface IFeeLP {

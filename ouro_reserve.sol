@@ -5,9 +5,9 @@ pragma solidity 0.6.12;
 import "./library.sol";
 
 /**
- * @notice OURO stability dynamics 
+ * @notice OURO reserve
  */
-contract OURODynamics is IOURODynamics,Ownable {
+contract OUROReserve is IOUROReserve,Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     using Address for address payable;

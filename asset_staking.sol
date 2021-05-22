@@ -259,9 +259,9 @@ contract AssetStaking is Ownable {
         uint256 totalRevenue = asssetsRevenue + assetOut;
         uint256 ouroBalance = OUROContract.balanceOf(address(this));
         if (isNativeToken) {
-            IOURODynamics(ouroDynamicsAddress).deposit{value:totalRevenue}(AssetContract, 0);
+            IOUROReserve(ouroDynamicsAddress).deposit{value:totalRevenue}(AssetContract, 0);
         } else {
-            IOURODynamics(ouroDynamicsAddress).deposit(AssetContract, totalRevenue);
+            IOUROReserve(ouroDynamicsAddress).deposit(AssetContract, totalRevenue);
         }
         
         // step 4. compute diff for new ouro and set share based on current stakers pro-rata
