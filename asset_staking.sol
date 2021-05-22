@@ -208,26 +208,30 @@ contract AssetStaking is Ownable {
         _currentRound++;
     }
     
+    /**
+     * @dev update ouro reward for current stakers(snapshot)
+     * this function should be implemented as idempotent way
+     */
     function _updateOuroReward() internal {
         // setp 1. settle venus XVS reward
         IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
         
-        // exchange XVS to assets
+        // and exchange XVS to assets
         address[] memory path = new address[](2);
         path[0] = xvsAddress;
         path[1] = router.WETH(); // always use native assets to bridge
         path[2] = address(AssetContract);
 
-        // swap all XVS to assets
+        // swap all XVS to staking asset
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
         uint [] memory amounts = router.getAmountsOut(xvsAmount, path);
         uint256 assetOut = amounts[2];
         
         if (isNativeToken) {
-            // swap out native assets ETH, BNB with XVS
+            // for native token, swap out native assets ETH, BNB with XVS
             router.swapTokensForExactETH(assetOut, xvsAmount, path, address(this), block.timestamp);
         } else {
-            // swap out assets out
+            // swap out ERC20 assets out
             router.swapTokensForExactTokens(assetOut, xvsAmount, path, address(this), block.timestamp);
         }
 
@@ -241,7 +245,8 @@ contract AssetStaking is Ownable {
         
         // the diff is the assets revenue
         uint256 asssetsRevenue;
-        if (underlyingBalance > _totalStaked) {
+        if (underlyingBalance > _totalStaked) { 
+            // the underlying assets has increased!
             asssetsRevenue = underlyingBalance.sub(_totalStaked);
             if (isNativeToken) {
                 IVBNB(vTokenAddress).redeemUnderlying(asssetsRevenue);
@@ -263,15 +268,19 @@ contract AssetStaking is Ownable {
         uint256 newMintedOuro = OUROContract.balanceOf(address(this)).sub(ouroBalance);
                 
         // OURO share
-        uint roundShareOURO = newMintedOuro.mul(SHARE_MULTIPLIER)
-                                        .div(_totalStaked);
+        uint roundShareOURO = newMintedOuro.mul(SHARE_MULTIPLIER) // avert underflow
+                                            .div(_totalStaked);
                                         
-        // ouro revenue
+        // set accumulated OURO share for current stakers
         _accShares[_currentRound].ouroShare = roundShareOURO.add(_accShares[_currentRound-1].ouroShare); 
     }
     
+    /**
+     * @dev update OGS token reward for current stakers(snapshot)
+     * this function should be implemented as idempotent way
+     */
     function _updateOGSReward() internal {
-        // settle reward share for [_lastRewardBlock, block.number]
+        // settle reward share for (_lastRewardBlock, block.number]
         uint blocksToReward = block.number.sub(_lastRewardBlock);
         uint mintedReward = BlockReward.mul(blocksToReward);
 
