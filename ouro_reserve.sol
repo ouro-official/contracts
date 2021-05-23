@@ -208,10 +208,10 @@ contract OUROReserve is IOUROReserve,Ownable {
         (, int latestPrice, , , ) = feed.latestRoundData();
 
         // avert negative price
-        if (latestPrice > 0) {
-            return uint256(latestPrice).mul(priceAlignMultiplier);
-        }
-        return 0;
+        require (latestPrice > 0, "invalid price feed");
+        
+        // return price corrected to USDT decimal
+        return uint256(latestPrice).mul(priceAlignMultiplier);
     }
     
     /**
@@ -314,7 +314,6 @@ contract OUROReserve is IOUROReserve,Ownable {
             // path:
             //  (??? ouro) -> WETH -> collateral
             
-            // always use USDT to bridge for non USDT token
             address[] memory path;
             
             if (address(token) == usdtContract) {
@@ -324,7 +323,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             } else {
                 path = new address[](3);
                 path[0] = address(ouroContract);
-                path[1] = address(usdtContract); 
+                path[1] = address(usdtContract); // use USDT to bridge
                 path[2] = address(token);
             }
 
@@ -392,7 +391,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev find the given asset value priced in OURO
      */
     function _lookupAssetValueInOURO(CollateralInfo memory collateral, uint256 amountAsset) internal view returns (uint256 amountOURO) {
-        // get asset value in USDT
+        // get lastest asset value in USDT
         uint256 assetUnitPrice = getAssetPrice(collateral.priceFeed);
         
         // compute total USDT value
@@ -424,6 +423,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     function _removeSupplyFromVenus(address vTokenAddress, uint256 amount) internal {
         IVToken(vTokenAddress).redeemUnderlying(amount);
     }
+    
     
     /**
      * ======================================================================================
@@ -483,7 +483,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         // get total collateral value priced in USDT
         uint256 totalCollateralValue = _getTotalCollateralValue();
         // get total issued OURO value priced in USDT
-        uint256 totalIssuedOUROValue =          ouroContract.totalSupply()
+        uint256 totalIssuedOUROValue =              ouroContract.totalSupply()
                                                     .mul(getPrice())
                                                     .div(OURO_PRICE_UNIT);
         
@@ -514,16 +514,16 @@ contract OUROReserve is IOUROReserve,Ownable {
                                                     .mul(MULTIPLIER)
                                                     .div(ouroPrice);
 
-                // maxiumum values required to raise price to limit;
+                // a) maxiumum values required to raise price to limit;
                 uint256 ouroApprecationValueLimit = ouroRisingSpace
                                                     .mul(totalIssuedOUROValue)
                                                     .div(MULTIPLIER);
                 
-                // maximum excessive value usable (30%)
+                // b) maximum excessive value usable (30%)
                 uint256 maximumUsableValue =        excessiveValue
                                                     .mul(100-OGSbuyBackRatio);
                 
-                // use the smaller one to appreciate OURO
+                // use the smaller one from a) & b) to appreciate OURO
                 uint256 valueToAppreciate = ouroApprecationValueLimit < maximumUsableValue?ouroApprecationValueLimit:maximumUsableValue;
                 
                 // value appreciation:
@@ -673,7 +673,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         } else {
             path = new address[](3);
             path[0] = address(collateral.token);
-            path[1] = address(usdtContract); // always use USDT to bridge
+            path[1] = address(usdtContract); // use USDT to bridge
             path[2] = address(ogsContract);
         }
         
@@ -722,7 +722,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         } else {
             path = new address[](3);
             path[0] = address(ogsContract);
-            path[1] = address(usdtContract); // always use USDT to bridge
+            path[1] = address(usdtContract); // use USDT to bridge
             path[2] = address(collateral.token);
         }
         
