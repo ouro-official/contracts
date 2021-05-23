@@ -179,6 +179,9 @@ contract OUROReserve is IOUROReserve,Ownable {
         // re-approve ogs to router
         ogsContract.safeApprove(address(router), 0);
         ogsContract.safeIncreaseAllowance(address(router), MAX_UINT256);
+        
+        // log
+        emit ResetAllowance();
     }
 
     /**
@@ -251,12 +254,12 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // update asset balance
         _assetsBalance[address(token)] += amountAsset;
+
+        // finally we farm the assets
+        _supply(collateral, amountAsset);
         
         // log
         emit Deposit(msg.sender, assetValueInOuro);
-        
-        // finally we farm the assets
-        _supply(collateral, amountAsset);
     }
     
     /**
@@ -416,7 +419,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     }
     
     /**
-     * @dev remove supply buy redeeming vToken
+     * @dev redeeming assets
      */
     function _removeSupplyFromVenus(address vTokenAddress, uint256 amount) internal {
         IVToken(vTokenAddress).redeemUnderlying(amount);
@@ -762,4 +765,5 @@ contract OUROReserve is IOUROReserve,Ownable {
      event Rebased(address account);
      event NewCollateral(IERC20 token);
      event RemoveCollateral(IERC20 token);
+     event ResetAllowance();
 }
