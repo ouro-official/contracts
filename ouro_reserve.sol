@@ -36,6 +36,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     IOUROToken public ouroContract = IOUROToken(0xEe5bCf20a21e0539Da126d8c86531E7BeE25933F);
     IOGSToken public ogsContract = IOGSToken(0xEe5bCf20a21e0539Da126d8c86531E7BeE25933F);
     IERC20 public usdtContract = IERC20(0x55d398326f99059fF775485246999027B3197955);
+    IERC20 public cakeContract = IERC20(0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82);
 
     IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
     uint256 constant internal MAX_UINT256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
@@ -46,7 +47,23 @@ contract OUROReserve is IOUROReserve,Ownable {
     
     // @dev scheduled issue from
     uint256 public issueFrom = block.timestamp;
-
+    
+    // CollateralInfo
+    struct CollateralInfo {
+        IERC20 token;
+        address vTokenAddress;
+        uint256 assetUnit; // usually 1e18
+        uint256 lastPrice; // record latest collateral price
+        AggregatorV3Interface priceFeed; // asset price feed for xxx/USDT
+        bool approvedToRouter;
+    }
+    
+    // registered collaterals for OURO
+    CollateralInfo [] public collaterals;
+    
+    // a mapping to track the balance of assets;
+    mapping (address => uint256) private _assetsBalance;
+    
     // try rebase for user's deposit and withdraw
     modifier tryRebase() {
         if (lastRebaseTimestamp + rebasePeriod >= block.timestamp) {
@@ -68,6 +85,23 @@ contract OUROReserve is IOUROReserve,Ownable {
      */
     function getPrice() public override returns(uint256) {
         return ouroPrice;
+    }
+    
+    /**
+     * @dev get asset price in USDT(decimal=8) for 1 unit of asset
+     */
+    function getAssetPrice(AggregatorV3Interface feed) public view returns(uint256) {
+        // always align the price to BUSD decimal, which is 1e18
+        uint256 priceAlignMultiplier = 1e18 / (10**uint256(feed.decimals()));
+        
+        // query price from chainlink
+        (, int latestPrice, , , ) = feed.latestRoundData();
+
+        // avert negative price
+        if (latestPrice > 0) {
+            return uint256(latestPrice).mul(priceAlignMultiplier);
+        }
+        return 0;
     }
     
     /**
@@ -108,8 +142,25 @@ contract OUROReserve is IOUROReserve,Ownable {
         // mint OURO to sender
         ouroContract.mint(msg.sender, assetValueInOuro);
         
+        // update asset balance
+        _assetsBalance[address(token)] += amountAsset;
+        
         // log
         emit Deposit(msg.sender, assetValueInOuro);
+        
+        // finally we farm the assets
+        _farmDeposit(collateral, amountAsset);
+    }
+    
+    /**
+     * @dev farm the user's deposit
+     */
+    function _farmDeposit(CollateralInfo memory collateral, uint256 amountAsset) internal {
+        // CAKE will be transferred to PancakeSwap’s “Auto CAKE” pool to earn CAKE rewards. 
+        // other assets will be transferred to Venus to earn yield from lending. 
+        if (collateral.token != cakeContract) {
+            _supplyToVenus(collateral.vTokenAddress, amountAsset);
+        }
     }
     
     /**
@@ -126,10 +177,12 @@ contract OUROReserve is IOUROReserve,Ownable {
         uint256 assetValueInOuro = lookupAssetOUROValue(collateral, amountAsset);
                                                     
         // check if we have sufficient assets to return to user
-        uint256 assetBalance = token.balanceOf(address(this));
+        uint256 assetBalance = _assetsBalance[address(token)];
         
         // perform OURO token burn
         if (assetBalance >= amountAsset) {
+            // redeem assets
+            _redeemToWithdraw(collateral, amountAsset);
             
             // sufficent asset satisfied! transfer user's OURO to this contract directly, 
             ouroContract.safeTransferFrom(msg.sender, address(this), assetValueInOuro);
@@ -138,6 +191,8 @@ contract OUROReserve is IOUROReserve,Ownable {
             ouroContract.burn(assetValueInOuro);
 
         } else {
+            // insufficient assets, redeem ALL
+            _redeemToWithdraw(collateral, assetBalance);
             
             // if we don't have enough assets to return
             // we buy extra assets from swaps with user's OURO
@@ -177,6 +232,20 @@ contract OUROReserve is IOUROReserve,Ownable {
         } else {
             // transfer back assets
             token.safeTransfer(msg.sender, amountAsset);
+        }
+        
+        // update asset balance
+        _assetsBalance[address(token)] -= amountAsset;
+    }
+    
+    /**
+     * @dev redeem assets from farm
+     */
+    function _redeemToWithdraw(CollateralInfo memory collateral, uint256 amountAsset) internal {
+        // CAKE will be transferred to PancakeSwap’s “Auto CAKE” pool to earn CAKE rewards. 
+        // other assets will be transferred to Venus to earn yield from lending. 
+        if (collateral.token != cakeContract) {
+            _removeSupplyFromVenus(collateral.vTokenAddress, amountAsset);
         }
     }
 
@@ -218,6 +287,24 @@ contract OUROReserve is IOUROReserve,Ownable {
     }
     
     /**
+     * @dev supply assets to venus and get vToken
+     */
+    function _supplyToVenus(address vTokenAddress, uint256 amount) internal {
+        if (vTokenAddress == router.WETH()) {
+            IVBNB(vTokenAddress).mint{value: amount}();
+        } else {
+            IVToken(vTokenAddress).mint(amount);
+        }
+    }
+    
+    /**
+     * @dev remove supply buy redeeming vToken
+     */
+    function _removeSupplyFromVenus(address vTokenAddress, uint256 amount) internal {
+        IVToken(vTokenAddress).redeemUnderlying(amount);
+    }
+    
+    /**
      * ======================================================================================
      * 
      * OURO's stablizer
@@ -231,18 +318,6 @@ contract OUROReserve is IOUROReserve,Ownable {
     //    burn when the value of the assets held in the pool is 3% higher than the value of the issued OURO
     uint public threshold = 3;
     uint public OGSbuyBackRatio = 70; // 70% to buy back OGS
-    
-    // CollateralInfo
-    struct CollateralInfo {
-        IERC20 token;
-        uint256 assetUnit; // usually 1e18
-        uint256 lastPrice; // record latest collateral price
-        AggregatorV3Interface priceFeed; // asset price feed for xxx/USDT
-        bool approvedToRouter;
-    }
-    
-    // registered collaterals for OURO
-    CollateralInfo [] public collaterals;
     
     // mark OGS approved to router
     bool public ogsApprovedToRouter;
@@ -558,23 +633,6 @@ contract OUROReserve is IOUROReserve,Ownable {
             // swap out tokens out to OURO contract
             router.swapTokensForExactTokens(ogsRequired, collateralToBuyBack, path, address(ouroContract), block.timestamp);
         }
-    }
-    
-    /**
-     * @dev get asset price in USDT(decimal=8) for 1 unit of asset
-     */
-    function getAssetPrice(AggregatorV3Interface feed) public view returns(uint256) {
-        // always align the price to BUSD decimal, which is 1e18
-        uint256 priceAlignMultiplier = 1e18 / (10**uint256(feed.decimals()));
-        
-        // query price from chainlink
-        (, int latestPrice, , , ) = feed.latestRoundData();
-
-        // avert negative price
-        if (latestPrice > 0) {
-            return uint256(latestPrice).mul(priceAlignMultiplier);
-        }
-        return 0;
     }
     
     /**

@@ -68,9 +68,9 @@ contract AssetStaking is Ownable {
     }
 
     /**
-     * @dev stake some assets
+     * @dev deposit some assets
      */
-    function stake(uint256 amount) external {
+    function deposit(uint256 amount) external {
         // settle previous rewards
         settleStaker(msg.sender);
         
@@ -78,6 +78,9 @@ contract AssetStaking is Ownable {
         AssetContract.safeTransferFrom(msg.sender, address(this), amount);
         _balances[msg.sender] += amount;
         _totalStaked += amount;
+        
+        // supply the asset to venus
+        _supply(amount);
     }
     
     /**
