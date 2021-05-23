@@ -312,7 +312,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     
             // find how many extra OUROs required to swap the extra assets out
             // path:
-            //  (??? ouro) -> WETH -> collateral
+            //  (??? ouro) -> USDT -> collateral
             
             address[] memory path;
             
@@ -338,7 +338,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     
             // buy assets back to this contract
             // path:
-            //  ouro-> WETH -> collateral
+            //  ouro-> (USDT) -> collateral
             if (address(token) == WETH) {
                 router.swapTokensForExactETH(extraAssets, extraOuroRequired, path, address(this), block.timestamp);
             } else {
@@ -658,7 +658,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // the path to find how many OGS can be swapped
         // path:
-        //  collateral -> WETH -> (??? OGS)
+        //  collateral -> USDT -> (??? OGS)
 
         address[] memory path;
         if (address(collateral.token) == usdtContract) {
@@ -678,7 +678,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // the path to swap OGS out
         // path:
-        //  collateral -> WETH -> exact OGS
+        //  collateral -> USDT -> exact OGS
         if (address(collateral.token) == WETH) {
             
             // swap OGS out with native assets to THIS contract
@@ -708,7 +708,7 @@ contract OUROReserve is IOUROReserve,Ownable {
                                              
         // the path to find how many OGS required to swap collateral out
         // path:
-        //  (??? OGS) -> WETH -> collateral
+        //  (??? OGS) -> USDT -> collateral
         address[] memory path;
         if (address(collateral.token) == usdtContract) {
             path = new address[](2);
@@ -731,7 +731,7 @@ contract OUROReserve is IOUROReserve,Ownable {
 
         // the path to swap collateral out
         // path:
-        //  (exact OGS) -> WETH -> collateral
+        //  (exact OGS) -> USDT -> collateral
         if (address(collateral.token) == WETH) {
             // swap out native assets ETH, BNB with OGS to OURO contract
             router.swapTokensForExactETH(ogsRequired, collateralToBuyBack, path, address(this), block.timestamp);
