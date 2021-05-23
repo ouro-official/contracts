@@ -31,16 +31,9 @@ contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
         _;
     }
 
-    mapping(address => TimeLock) private _timelock;
-
     event BlockTransfer(address indexed account);
     event AllowTransfer(address indexed account);
-
-    struct TimeLock {
-        uint256 releaseTime;
-        uint256 amount;
-    }
-
+    
     /**
      * @dev Initialize the contract give all tokens to the deployer
      */
@@ -106,28 +99,6 @@ contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
     }
 
     /**
-     * @dev View `account` locked information
-     */
-    function timelockOf(address account) public view returns(uint256 releaseTime, uint256 amount) {
-        TimeLock memory timelock = _timelock[account];
-        return (timelock.releaseTime, timelock.amount);
-    }
-
-    /**
-     * @dev Release the specified `amount` of locked amount
-     * @notice only Owner call
-     */
-    function release(address account, uint256 releaseAmount) public onlyOwner {
-        require(account != address(0), "OGS: release zero address");
-
-        TimeLock storage timelock = _timelock[account];
-        timelock.amount = timelock.amount.sub(releaseAmount);
-        if(timelock.amount == 0) {
-            timelock.releaseTime = 0;
-        }
-    }
-
-    /**
      * @dev Triggers stopped state.
      * @notice only Owner call
      */
@@ -142,30 +113,6 @@ contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
     function unpause() public onlyOwner {
         _unpause();
     }
-    
-    /**
-     * @dev transfer with lock 
-     *
-     * Requirements:
-     *
-     * - `recipient` cannot be the zero address.
-     * - the caller must have a balance of at least `amount`.
-     * - releaseTime.
-     */
-    function transferWithLock(address recipient, uint256 amount, uint256 releaseTime) public onlyOwner returns (bool) {
-        require(recipient != address(0), "OGS: lockup zero address");
-        require(releaseTime > block.timestamp, "OGS: release time before lock time");
-        require(_timelock[recipient].releaseTime == 0, "OGS: already locked");
-
-        TimeLock memory timelock = TimeLock({
-            releaseTime : releaseTime,
-            amount      : amount
-        });
-        _timelock[recipient] = timelock;
-        
-        _transfer(_msgSender(), recipient, amount);
-        return true;
-    }
 
     /**
      * @dev Batch transfer amount to recipient
@@ -178,31 +125,5 @@ contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
         for(uint256 i = 0; i < recipients.length; ++i) {
             _transfer(_msgSender(), recipients[i], amounts[i]);
         }
-    }
-
-    /**
-     * @dev See {ERC20-_beforeTokenTransfer}.
-     *
-     * Requirements:
-     *
-     * - the contract must not be paused.
-     * - accounts must not trigger the locked `amount` during the locked period.
-     */
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        require(!paused(), "OGS: token transfer while paused");
-
-        // Check whether the locked amount is triggered
-        TimeLock storage timelock = _timelock[from];
-        if(timelock.releaseTime != 0 && balanceOf(from).sub(amount) < timelock.amount) {
-            require(block.timestamp >= timelock.releaseTime, "OGS: current time is before from account release time");
-
-            // Update the locked `amount` if the current time reaches the release time
-            timelock.amount = balanceOf(from).sub(amount);
-            if(timelock.amount == 0) {
-                timelock.releaseTime = 0;
-            }
-        }
-
-        super._beforeTokenTransfer(from, to, amount);
     }
 }
