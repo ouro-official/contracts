@@ -33,9 +33,9 @@ contract OUROReserve is IOUROReserve,Ownable {
     uint public ouroLastPriceUpdate = block.timestamp;
     uint public ouroPriceUpdatePeriod = MONTH;
 
+    address public usdtContract = 0x55d398326f99059fF775485246999027B3197955;
     IOUROToken public ouroContract = IOUROToken(0x8f79109138200F089CE91d16966d96c1D4cd5C2a);
     IOGSToken public ogsContract = IOGSToken(0x7e5c00a45FF501624F53c1E8283116F76324D4E0);
-    IERC20 public usdtContract = IERC20(0x55d398326f99059fF775485246999027B3197955);
     IERC20 public cakeContract = IERC20(0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82);
 
     IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
@@ -201,10 +201,21 @@ contract OUROReserve is IOUROReserve,Ownable {
             // find how many extra OUROs required to swap the extra assets out
             // path:
             //  (??? ouro) -> WETH -> collateral
-            address[] memory path = new address[](2);
-            path[0] = address(ouroContract);
-            path[1] = router.WETH(); // always use native asset(BNB) to bridge
-            path[2] = address(token);
+            
+            // always use USDT to bridge for non USDT token
+            address[] memory path;
+            
+            if (address(token) == usdtContract) {
+                path = new address[](2);
+                path[0] = address(ouroContract);
+                path[1] = address(token);
+            } else {
+                path = new address[](3);
+                path[0] = address(ouroContract);
+                path[1] = address(usdtContract); 
+                path[2] = address(token);
+            }
+
             
             uint [] memory amounts = router.getAmountsIn(extraAssets, path);
             uint256 extraOuroRequired = amounts[0];
@@ -549,14 +560,22 @@ contract OUROReserve is IOUROReserve,Ownable {
         // the path to find how many OGS can be swapped
         // path:
         //  collateral -> WETH -> (??? OGS)
-        address[] memory path = new address[](2);
-        path[0] = address(collateral.token);
-        path[1] = router.WETH(); // always use native asset(BNB) to bridge
-        path[2] = address(ogsContract);
+
+        address[] memory path;
+        if (address(collateral.token) == usdtContract) {
+            path = new address[](2);
+            path[0] = address(collateral.token);
+            path[1] = address(ogsContract);
+        } else {
+            path = new address[](3);
+            path[0] = address(collateral.token);
+            path[1] = address(usdtContract); // always use USDT to bridge
+            path[2] = address(ogsContract);
+        }
         
         // calc amount OGS that could be swapped out with given collateral
         uint [] memory amounts = router.getAmountsOut(collateralToBuyOGS, path);
-        uint256 ogsAmountOut = amounts[2];
+        uint256 ogsAmountOut = amounts[amounts.length - 1];
         
         // the path to swap OGS out
         // path:
@@ -597,10 +616,17 @@ contract OUROReserve is IOUROReserve,Ownable {
         // the path to find how many OGS required to swap collateral out
         // path:
         //  (??? OGS) -> WETH -> collateral
-        address[] memory path = new address[](2);
-        path[0] = address(ogsContract);
-        path[1] = router.WETH(); // always use native asset(BNB) to bridge
-        path[2] = address(collateral.token);
+        address[] memory path;
+        if (address(collateral.token) == usdtContract) {
+            path = new address[](2);
+            path[0] = address(ogsContract);
+            path[1] = address(collateral.token);
+        } else {
+            path = new address[](3);
+            path[0] = address(ogsContract);
+            path[1] = address(usdtContract); // always use USDT to bridge
+            path[2] = address(collateral.token);
+        }
         
         // calc amount OGS required to swap out given collateral
         uint [] memory amounts = router.getAmountsIn(collateralToBuyBack, path);

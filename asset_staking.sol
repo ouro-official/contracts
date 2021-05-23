@@ -27,6 +27,7 @@ contract AssetStaking is Ownable {
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant ouroReserveAddress = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
+    address public usdtContract = 0x55d398326f99059fF775485246999027B3197955;
 
     // pancake router
     IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
@@ -222,7 +223,7 @@ contract AssetStaking is Ownable {
         // and exchange XVS to assets
         address[] memory path = new address[](2);
         path[0] = xvsAddress;
-        path[1] = router.WETH(); // always use native assets to bridge
+        path[1] = usdtContract; // always use USDT to bridge
         path[2] = address(AssetContract);
 
         // swap all XVS to staking asset
