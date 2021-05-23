@@ -334,7 +334,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     }
     
     /**
-     * @dev find the given collateral info
+     * @dev find the given asset value priced in OURO
      */
     function _lookupAssetValueInOURO(CollateralInfo memory collateral, uint256 amountAsset) internal view returns (uint256 amountOURO) {
         // get asset value in USDT
@@ -398,15 +398,16 @@ contract OUROReserve is IOUROReserve,Ownable {
     uint constant MULTIPLIER = 1e12;
 
     /**
-     * set rebase period
+     * @dev set rebase period
      */
     function setRebasePeriod(uint period) external onlyOwner {
-        require(period > 0);
+        require(period > 0, "period 0");
         rebasePeriod = period;
     }
     
     /**
-     * rebase
+     * @dev rebase entry
+     * public method for all external caller
      */
     function rebase() public {
          // rebase period check
@@ -424,28 +425,29 @@ contract OUROReserve is IOUROReserve,Ownable {
     }
  
     /**
-     * @dev rebase is the stability dynamic for ouro
+     * @dev rebase is the stability dynamics for OURO
      */
     function _rebase() internal {
         // get total collateral value(USDT)
         uint256 totalCollateralValue = _getTotalCollateralValue();
         // get total OURO value(USDT)
         uint256 totalOUROValue = ouroContract.totalSupply()
-                                        .mul(getPrice())
-                                        .div(OURO_PRICE_UNIT);
+                                                    .mul(getPrice())
+                                                    .div(OURO_PRICE_UNIT);
         
         // compute values deviates
         if (totalCollateralValue >= totalOUROValue.mul(100+threshold).div(100)) {
             // collaterals has excessive value to OURO value, 
             // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
             // and conduct a token burn
-            uint256 excessiveValue = totalCollateralValue.sub(totalOUROValue)
-                                                        .div(100);
+            uint256 excessiveValue = totalCollateralValue
+                                                    .sub(totalOUROValue)
+                                                    .div(100);
                                                         
             // check if price has already reached monthly limit 
             uint256 priceUpperLimit = ouroPriceAtMonthStart
-                                            .mul(100+appreciationLimit)
-                                            .div(100);
+                                                    .mul(100+appreciationLimit)
+                                                    .div(100);
                                             
             // conduct a ouro default price change                                
             if (ouroPrice < priceUpperLimit) {
