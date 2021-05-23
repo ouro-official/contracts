@@ -147,13 +147,13 @@ contract OUROReserve is IOUROReserve,Ownable {
         emit Deposit(msg.sender, assetValueInOuro);
         
         // finally we farm the assets
-        _farmDeposit(collateral, amountAsset);
+        _supply(collateral, amountAsset);
     }
     
     /**
      * @dev farm the user's deposit
      */
-    function _farmDeposit(CollateralInfo memory collateral, uint256 amountAsset) internal {
+    function _supply(CollateralInfo memory collateral, uint256 amountAsset) internal {
         // CAKE will be transferred to PancakeSwap’s “Auto CAKE” pool to earn CAKE rewards. 
         // other assets will be transferred to Venus to earn yield from lending. 
         if (collateral.token != cakeContract) {
@@ -177,7 +177,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         // perform OURO token burn
         if (assetBalance >= amountAsset) {
             // redeem assets
-            _redeemToWithdraw(collateral, amountAsset);
+            _redeemSupply(collateral, amountAsset);
                     
             // sufficent asset satisfied! transfer user's equivalent OURO to this contract directly
             uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral, amountAsset);
@@ -189,7 +189,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         } else {
             
             // insufficient assets, redeem ALL
-            _redeemToWithdraw(collateral, assetBalance);
+            _redeemSupply(collateral, assetBalance);
             
             // redeemed assets value in OURO
             uint256 redeemedAssetValue = _lookupAssetValueInOURO(collateral, assetBalance);
@@ -200,7 +200,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     
             // find how many extra OUROs required to swap the extra assets out
             // path:
-            //  (??? ouro) -> WETH -> token
+            //  (??? ouro) -> WETH -> collateral
             address[] memory path = new address[](2);
             path[0] = address(ouroContract);
             path[1] = router.WETH(); // always use native asset(BNB) to bridge
@@ -216,7 +216,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     
             // buy assets back to this contract
             // path:
-            //  ouro-> WETH -> token
+            //  ouro-> WETH -> collateral
             if (address(token) == router.WETH()) {
                 router.swapTokensForExactETH(extraAssets, extraOuroRequired, path, address(this), block.timestamp);
             } else {
@@ -245,7 +245,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     /**
      * @dev redeem assets from farm
      */
-    function _redeemToWithdraw(CollateralInfo memory collateral, uint256 amountAsset) internal {
+    function _redeemSupply(CollateralInfo memory collateral, uint256 amountAsset) internal {
         // CAKE will be transferred to PancakeSwap’s “Auto CAKE” pool to earn CAKE rewards. 
         // other assets will be transferred to Venus to earn yield from lending. 
         if (collateral.token != cakeContract) {
@@ -412,6 +412,8 @@ contract OUROReserve is IOUROReserve,Ownable {
                 excessiveValue = excessiveValue.sub(valueToAppreciate);
             }
             
+            // after price appreciation, if we still have excessive value
+            // conduct a collateral rebalance
             if (excessiveValue > 0) {
                 // rebalance the collaterals
                 _executeRebalance(true, excessiveValue);
@@ -434,35 +436,30 @@ contract OUROReserve is IOUROReserve,Ownable {
     
     /**
      * @dev value deviates, execute buy back operations
+     * valueDeviates is priced in USDT
      */
     function _executeRebalance(bool buyOGS, uint256 valueDeviates) internal {
-        uint256 deviatedCollateralValue = _getTotalDeviatedValue(buyOGS);
+        // we only rebalance the assets which has price deviats and omit the balanced ones
+        uint256 totalCollateralValueDeviated = _getTotalCollateralValueDeviated(buyOGS);
         
         // buyback operations in pro-rata basis
         for (uint i=0;i<collaterals.length;i++) {
             CollateralInfo storage collateral = collaterals[i];
-
-            uint256 slotValue;
-            if (address(collateral.token) == router.WETH()) {
-                slotValue = getAssetPrice(collateral.priceFeed)
-                                        .mul(address(ouroContract).balance)
-                                        .div(collateral.assetUnit);
-                                    
-            } else {
-                slotValue = getAssetPrice(collateral.priceFeed)
-                                        .mul(collateral.token.balanceOf(address(ouroContract)))
-                                        .div(collateral.assetUnit);
-            }
+        
+            // calc slot value in USDT
+            uint256 slotValue = getAssetPrice(collateral.priceFeed)
+                                                .mul(_assetsBalance[address(collateral.token)])
+                                                .div(collateral.assetUnit);
             
             // calc pro-rata buy back value(in USDT) for this collateral
             uint256 slotBuyBackValue = slotValue.mul(valueDeviates)
-                                        .div(deviatedCollateralValue);
+                                                .div(totalCollateralValueDeviated);
                                 
             // execute different buyback operations
             if (buyOGS) {
-                _buybackOGSWithCollateral(collateral, slotBuyBackValue);
+                _buybackOGS(collateral, slotBuyBackValue);
             } else {
-                _buybackCollateralWithOGS(collateral, slotBuyBackValue);
+                _buybackCollateral(collateral, slotBuyBackValue);
             }
         }
     }
@@ -497,37 +494,27 @@ contract OUROReserve is IOUROReserve,Ownable {
         uint256 totalCollateralValue;
         for (uint i=0;i<collaterals.length;i++) {
             CollateralInfo storage collateral = collaterals[i];
-            
-            if (address(collateral.token) == router.WETH()) {
-                // native assets, such as:
-                // ETH on ethereum , BNB on binance smart chain
-                totalCollateralValue += getAssetPrice(collateral.priceFeed)
-                                        .mul(address(ouroContract).balance)
-                                        .div(collateral.assetUnit);
-            } else {
-                // ERC20 assets (tokens)
-                totalCollateralValue += getAssetPrice(collateral.priceFeed)
-                                        .mul(collateral.token.balanceOf(address(ouroContract)))
-                                        .div(collateral.assetUnit);
-            }
+            totalCollateralValue += getAssetPrice(collateral.priceFeed)
+                                    .mul(_assetsBalance[address(collateral.token)])
+                                    .div(collateral.assetUnit);
         }
         
         return totalCollateralValue;
     }
     
     /**
-     * @dev get total deviated collateral value
+     * @dev get total collateral value which deviated
      */
-    function _getTotalDeviatedValue(bool buyOGS) internal view returns(uint256) {
+    function _getTotalCollateralValueDeviated(bool buyOGS) internal view returns(uint256) {
         // count total deviated collateral value 
         uint256 deviatedCollateralValue;
         for (uint i=0;i<collaterals.length;i++) {
             CollateralInfo storage collateral = collaterals[i];
             
-            // check new price of the assets & omit those not deviated assets
+            // check new price of the assets & omit those not deviated
             uint256 newPrice = getAssetPrice(collateral.priceFeed);
             if (buyOGS) {
-                //  omit assets deviated negatively
+                // omit assets deviated negatively
                 if (newPrice < collateral.lastPrice) {
                     continue;
                 }
@@ -538,18 +525,10 @@ contract OUROReserve is IOUROReserve,Ownable {
                 }
             }
             
-            if (address(collateral.token) == router.WETH()) {
-                // native assets, such as:
-                // ETH on ethereum , BNB on binance smart chain
-                deviatedCollateralValue += getAssetPrice(collateral.priceFeed)
-                                        .mul(address(ouroContract).balance)
-                                        .div(collateral.assetUnit);
-            } else {
-                // ERC20 assets (tokens)
-                deviatedCollateralValue += getAssetPrice(collateral.priceFeed)
-                                        .mul(collateral.token.balanceOf(address(ouroContract)))
-                                        .div(collateral.assetUnit);
-            }
+            // accumulate value in USDT
+            deviatedCollateralValue += getAssetPrice(collateral.priceFeed)
+                                    .mul(_assetsBalance[address(collateral.token)])
+                                    .div(collateral.assetUnit);
         }
         
         return deviatedCollateralValue;
@@ -557,13 +536,19 @@ contract OUROReserve is IOUROReserve,Ownable {
     
     /**
      * @dev buy back OGS with collateral
+     * slotValue is priced in USDT 
      */
-    function _buybackOGSWithCollateral(CollateralInfo storage collateral, uint256 slotValue) internal {
+    function _buybackOGS(CollateralInfo storage collateral, uint256 slotValue) internal {
         uint256 collateralToBuyOGS = slotValue
                                         .mul(collateral.assetUnit)
                                         .div(getAssetPrice(collateral.priceFeed));
 
-        // the path to swap OGS out
+        // redeem supply from farming
+        _redeemSupply(collateral, collateralToBuyOGS);
+        
+        // the path to find how many OGS can be swapped
+        // path:
+        //  collateral -> WETH -> (??? OGS)
         address[] memory path = new address[](2);
         path[0] = address(collateral.token);
         path[1] = router.WETH(); // always use native asset(BNB) to bridge
@@ -573,17 +558,17 @@ contract OUROReserve is IOUROReserve,Ownable {
         uint [] memory amounts = router.getAmountsOut(collateralToBuyOGS, path);
         uint256 ogsAmountOut = amounts[2];
         
+        // the path to swap OGS out
+        // path:
+        //  collateral -> WETH -> exact OGS
         if (address(collateral.token) == router.WETH()) {
             
             // swap OGS out with native assets to THIS contract
             router.swapExactETHForTokens{value:collateralToBuyOGS}(ogsAmountOut, path, address(this), block.timestamp);
             
         } else {
-            // for ERC20 assets, transfer the tokens from ouro contract to THIS contract
-            // NOTE: ouroContract contract MUST authorized THIS contract the right to transfer assets
-            collateral.token.safeTransferFrom(address(ouroContract), address(this), collateralToBuyOGS);
-            
-            // make sure we approved token to router
+
+            // for ERC20 token, make sure we approved token to router
             if (!collateral.approvedToRouter) {
                 collateral.token.approve(address(router), MAX_UINT256);
                 collateral.approvedToRouter = true;
@@ -595,17 +580,23 @@ contract OUROReserve is IOUROReserve,Ownable {
 
         // burn OGS
         ogsContract.burn(ogsAmountOut);
+        
+        // accounting
+        _assetsBalance[address(collateral.token)] = _assetsBalance[address(collateral.token)].sub(collateralToBuyOGS);
     }
     
     /**
      * @dev buy back collateral with OGS
+     * slotValue is priced in USDT 
      */
-    function _buybackCollateralWithOGS(CollateralInfo storage collateral, uint256 slotValue) internal {
+    function _buybackCollateral(CollateralInfo storage collateral, uint256 slotValue) internal {
         uint256 collateralToBuyBack = slotValue
                                         .mul(collateral.assetUnit)
                                         .div(getAssetPrice(collateral.priceFeed));
                                              
-        // the path to swap collateral out
+        // the path to find how many OGS required to swap collateral out
+        // path:
+        //  (??? OGS) -> WETH -> collateral
         address[] memory path = new address[](2);
         path[0] = address(ogsContract);
         path[1] = router.WETH(); // always use native asset(BNB) to bridge
@@ -616,7 +607,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         uint256 ogsRequired = amounts[0];
                     
         // mint OGS to this contract to buy back collateral           
-        // NOTE: ogs contract MUST authorized THIS contract the right to mint
+        // NOTE: ogs contract MUST authorized THIS contract the privilege to mint
         ogsContract.mint(address(this), ogsRequired);
         
         // make sure we approved OGS to router
@@ -625,14 +616,23 @@ contract OUROReserve is IOUROReserve,Ownable {
             ogsApprovedToRouter = true;
         }
 
+        // the path to swap collateral out
+        // path:
+        //  (exact OGS) -> WETH -> collateral
         if (address(collateral.token) == router.WETH()) {
             // swap out native assets ETH, BNB with OGS to OURO contract
-            router.swapTokensForExactETH(ogsRequired, collateralToBuyBack, path, address(ouroContract), block.timestamp);
+            router.swapTokensForExactETH(ogsRequired, collateralToBuyBack, path, address(this), block.timestamp);
 
         } else {
             // swap out tokens out to OURO contract
-            router.swapTokensForExactTokens(ogsRequired, collateralToBuyBack, path, address(ouroContract), block.timestamp);
+            router.swapTokensForExactTokens(ogsRequired, collateralToBuyBack, path, address(this), block.timestamp);
         }
+        
+        // as we brought back the collateral, farm the asset
+        _supply(collateral, collateralToBuyBack);
+        
+        // accounting
+        _assetsBalance[address(collateral.token)] += collateralToBuyBack;
     }
     
     /**
