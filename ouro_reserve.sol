@@ -109,7 +109,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     function deposit(IERC20 token, uint256 amountAsset) external override payable tryRebase {
         
         // locate collateral
-        (CollateralInfo memory collateral, bool valid) = findCollateral(token);
+        (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
         require(valid, "not a valid collateral");
 
         // for native token, omit amountAsset and use msg.value instead
@@ -119,7 +119,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         }
         
         // get equivalent OURO value
-        uint256 assetValueInOuro = lookupAssetValueInOURO(collateral, amountAsset);
+        uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral, amountAsset);
         
         // check monthly OURO issuance limit
         uint monthN = block.timestamp.sub(issueFrom).div(MONTH);
@@ -168,11 +168,8 @@ contract OUROReserve is IOUROReserve,Ownable {
     function withdraw(IERC20 token, uint256 amountAsset) external override tryRebase {
         
         // locate collateral
-        (CollateralInfo memory collateral, bool valid) = findCollateral(token);
+        (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
         require(valid, "not a collateral");
-        
-        // calc equivalent OURO value
-        uint256 assetValueInOuro = lookupAssetValueInOURO(collateral, amountAsset);
                                                     
         // check if we have sufficient assets to return to user
         uint256 assetBalance = _assetsBalance[address(token)];
@@ -181,8 +178,9 @@ contract OUROReserve is IOUROReserve,Ownable {
         if (assetBalance >= amountAsset) {
             // redeem assets
             _redeemToWithdraw(collateral, amountAsset);
-            
-            // sufficent asset satisfied! transfer user's OURO to this contract directly, 
+                    
+            // sufficent asset satisfied! transfer user's equivalent OURO to this contract directly
+            uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral, amountAsset);
             ouroContract.safeTransferFrom(msg.sender, address(this), assetValueInOuro);
             
             // and burn OURO.
@@ -194,13 +192,15 @@ contract OUROReserve is IOUROReserve,Ownable {
             _redeemToWithdraw(collateral, assetBalance);
             
             // redeemed assets value in OURO
-            uint256 redeemedAssetValue = lookupAssetValueInOURO(collateral, assetBalance);
+            uint256 redeemedAssetValue = _lookupAssetValueInOURO(collateral, assetBalance);
             
             // as we don't have enough assets to return to user
             // we buy extra assets from swaps with user's OURO
             uint256 extraAssets = amountAsset.sub(assetBalance);
     
             // find how many extra OUROs required to swap the extra assets out
+            // path:
+            //  (??? ouro) -> WETH -> token
             address[] memory path = new address[](2);
             path[0] = address(ouroContract);
             path[1] = router.WETH(); // always use native asset(BNB) to bridge
@@ -256,7 +256,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     /**
      * @dev find the given collateral info
      */
-    function findCollateral(IERC20 token) internal view returns (CollateralInfo memory, bool) {
+    function _findCollateral(IERC20 token) internal view returns (CollateralInfo memory, bool) {
         uint n = collaterals.length;
         for (uint i=0;i<n;i++) {
             if (collaterals[i].token == token){
@@ -268,7 +268,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     /**
      * @dev find the given collateral info
      */
-    function lookupAssetValueInOURO(CollateralInfo memory collateral, uint256 amountAsset) internal view returns (uint256 amountOURO) {
+    function _lookupAssetValueInOURO(CollateralInfo memory collateral, uint256 amountAsset) internal view returns (uint256 amountOURO) {
         // get asset value in USDT
         uint256 assetUnitPrice = getAssetPrice(collateral.priceFeed);
         
