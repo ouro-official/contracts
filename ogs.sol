@@ -99,22 +99,6 @@ contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
     }
 
     /**
-     * @dev Triggers stopped state.
-     * @notice only Owner call
-     */
-    function pause() public onlyOwner {
-        _pause();
-    }
-
-    /**
-     * @dev Returns to normal state.
-     * @notice only Owner call
-     */
-    function unpause() public onlyOwner {
-        _unpause();
-    }
-
-    /**
      * @dev Batch transfer amount to recipient
      * @notice that excessive gas consumption causes transaction revert
      */
