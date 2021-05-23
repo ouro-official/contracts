@@ -194,48 +194,53 @@ contract OUROReserve is IOUROReserve,Ownable {
             // insufficient assets, redeem ALL
             _redeemToWithdraw(collateral, assetBalance);
             
-            // if we don't have enough assets to return
+            // redeemed asset value
+            uint256 redeemedAssetValue = lookupAssetOUROValue(collateral, assetBalance);
+            
+            // as we don't have enough assets to return to user
             // we buy extra assets from swaps with user's OURO
-            uint256 assetsToBuy = amountAsset.sub(assetBalance);
-            
-            // current asset value in ouro(in our vault)
-            uint256 currentAssetValueInOuro = lookupAssetOUROValue(collateral, assetBalance);
+            uint256 extraAssets = amountAsset.sub(assetBalance);
     
-            // find how many extra OUROs required to swap assets out
+            // find how many extra OUROs required to swap the extra assets out
             address[] memory path = new address[](2);
-            path[0] = address(this);
-            path[1] = router.WETH(); // always use native assets to bridge
-            path[1] = address(token);
+            path[0] = address(ouroContract);
+            path[1] = router.WETH(); // always use native asset(BNB) to bridge
+            path[2] = address(token);
             
-            uint [] memory amounts = router.getAmountsIn(assetsToBuy, path);
-            uint256 ouroRequired = amounts[0];
+            uint [] memory amounts = router.getAmountsIn(extraAssets, path);
+            uint256 extraOuroRequired = amounts[0];
             
             // @notice user needs sufficient OURO to swap assets out
-            // transfer total OURO to this contract
-            ouroContract.safeTransferFrom(msg.sender, address(this), ouroRequired.add(currentAssetValueInOuro));
+            // transfer total OURO to this contract, if user has insufficient OURO, the transaction will revert
+            uint256 totalOuroToBurn = extraOuroRequired.add(redeemedAssetValue);
+            ouroContract.safeTransferFrom(msg.sender, address(this), totalOuroToBurn);
     
             // buy assets back to this contract
+            // path:
+            //  ouro-> WETH -> token
             if (address(token) == router.WETH()) {
-                router.swapTokensForExactETH(assetsToBuy, ouroRequired, path, address(this), block.timestamp);
+                router.swapTokensForExactETH(extraAssets, extraOuroRequired, path, address(this), block.timestamp);
             } else {
                 // swap out tokens out to OURO contract
-                router.swapTokensForExactTokens(assetsToBuy, ouroRequired, path, address(this), block.timestamp);
+                router.swapTokensForExactTokens(extraAssets, extraOuroRequired, path, address(this), block.timestamp);
             }
             
-            // only burn the vault part
-            ouroContract.burn(currentAssetValueInOuro);
+            // burn OURO
+            ouroContract.burn(totalOuroToBurn);
         }
         
-        // finally we transfer the assets back to user
+        // finally we transfer the assets based on assset type back to user
         if (address(token) == router.WETH()) {
-            payable(msg.sender).sendValue(amountAsset);
+            msg.sender.sendValue(amountAsset);
         } else {
-            // transfer back assets
             token.safeTransfer(msg.sender, amountAsset);
         }
         
         // update asset balance
         _assetsBalance[address(token)] -= amountAsset;
+        
+        // log withdraw
+        emit Withdraw(msg.sender, address(token), amountAsset);
     }
     
     /**
@@ -568,11 +573,12 @@ contract OUROReserve is IOUROReserve,Ownable {
         // the path to swap OGS out
         address[] memory path = new address[](2);
         path[0] = address(collateral.token);
-        path[1] = address(ogsContract);
+        path[1] = router.WETH(); // always use native asset(BNB) to bridge
+        path[2] = address(ogsContract);
         
         // calc amount OGS that could be swapped out with given collateral
         uint [] memory amounts = router.getAmountsOut(collateralToBuyOGS, path);
-        uint256 ogsAmountOut = amounts[1];
+        uint256 ogsAmountOut = amounts[2];
         
         if (address(collateral.token) == router.WETH()) {
             
@@ -609,7 +615,8 @@ contract OUROReserve is IOUROReserve,Ownable {
         // the path to swap collateral out
         address[] memory path = new address[](2);
         path[0] = address(ogsContract);
-        path[1] = address(collateral.token);
+        path[1] = router.WETH(); // always use native asset(BNB) to bridge
+        path[2] = address(collateral.token);
         
         // calc amount OGS required to swap out given collateral
         uint [] memory amounts = router.getAmountsIn(collateralToBuyBack, path);
@@ -638,7 +645,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     /**
      * ======================================================================================
      * 
-     * OURO's events
+     * OURO Reserve's events
      *
      * ======================================================================================
      */
