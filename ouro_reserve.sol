@@ -467,9 +467,17 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // rebase collaterals
         _rebase();
+        
         // book keeping after rebase
-        _bookkeeping();
-        // update time
+        if (block.timestamp < ouroLastPriceUpdate + ouroPriceUpdatePeriod) {
+            return;
+        }
+        
+        // record price at month begins
+        ouroLastPriceUpdate = block.timestamp;
+        ouroPriceAtMonthStart = ouroPrice;
+        
+        // update rebase time
         lastRebaseTimestamp += rebasePeriod;
         
         // log
@@ -620,20 +628,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             collateral.lastPrice = newPrice;
         }
     }
-    
-    /**
-     * @dev book keeping after rebase
-     */
-    function _bookkeeping() internal {
-        if (block.timestamp < ouroLastPriceUpdate + ouroPriceUpdatePeriod) {
-            return;
-        }
-        
-        // update price for next month
-        ouroLastPriceUpdate = block.timestamp;
-        ouroPriceAtMonthStart = ouroPrice;
-    }
-       
+
     /**
      * @dev get total collateral value
      */
