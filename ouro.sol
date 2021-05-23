@@ -31,9 +31,6 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
         _;
     }
 
-    event BlockTransfer(address indexed account);
-    event AllowTransfer(address indexed account);
-
     /**
      * @dev Initialize the contract give all tokens to the deployer
      */

@@ -30,9 +30,6 @@ contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
         require(mintableGroup[msg.sender], "OGS: not in mintable group");
         _;
     }
-
-    event BlockTransfer(address indexed account);
-    event AllowTransfer(address indexed account);
     
     /**
      * @dev Initialize the contract give all tokens to the deployer
