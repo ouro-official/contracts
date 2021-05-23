@@ -33,8 +33,8 @@ contract OUROReserve is IOUROReserve,Ownable {
     uint public ouroLastPriceUpdate = block.timestamp;
     uint public ouroPriceUpdatePeriod = MONTH;
 
-    IOUROToken public ouroContract = IOUROToken(0xEe5bCf20a21e0539Da126d8c86531E7BeE25933F);
-    IOGSToken public ogsContract = IOGSToken(0xEe5bCf20a21e0539Da126d8c86531E7BeE25933F);
+    IOUROToken public ouroContract = IOUROToken(0x8f79109138200F089CE91d16966d96c1D4cd5C2a);
+    IOGSToken public ogsContract = IOGSToken(0x7e5c00a45FF501624F53c1E8283116F76324D4E0);
     IERC20 public usdtContract = IERC20(0x55d398326f99059fF775485246999027B3197955);
     IERC20 public cakeContract = IERC20(0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82);
 

@@ -25,7 +25,7 @@ contract AssetStaking is Ownable {
     
     address public constant wbnbAddress = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
-    address public constant ouroDynamicsAddress = 0xfD36E2c2a6789Db23113685031d7F16329158384;
+    address public constant ouroReserveAddress = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
 
     // pancake router
@@ -262,9 +262,9 @@ contract AssetStaking is Ownable {
         uint256 totalRevenue = asssetsRevenue + assetOut;
         uint256 ouroBalance = OUROContract.balanceOf(address(this));
         if (isNativeToken) {
-            IOUROReserve(ouroDynamicsAddress).deposit{value:totalRevenue}(AssetContract, 0);
+            IOUROReserve(ouroReserveAddress).deposit{value:totalRevenue}(AssetContract, 0);
         } else {
-            IOUROReserve(ouroDynamicsAddress).deposit(AssetContract, totalRevenue);
+            IOUROReserve(ouroReserveAddress).deposit(AssetContract, totalRevenue);
         }
         
         // step 4. compute diff for new ouro and set share based on current stakers pro-rata
