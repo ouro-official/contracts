@@ -5,7 +5,7 @@ pragma solidity 0.6.12;
 import "./library.sol";
 
 /**
- * @notice OURO reserve
+ * @notice OURO community reserve
  */
 contract OUROReserve is IOUROReserve,Ownable {
     using SafeERC20 for IERC20;
@@ -632,7 +632,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         _supply(collateral, collateralToBuyBack);
         
         // accounting
-        _assetsBalance[address(collateral.token)] += collateralToBuyBack;
+        _assetsBalance[address(collateral.token)] = _assetsBalance[address(collateral.token)].add(collateralToBuyBack);
     }
     
     /**
