@@ -63,13 +63,70 @@ contract OUROReserve is IOUROReserve,Ownable {
     
     // a mapping to track the balance of assets;
     mapping (address => uint256) private _assetsBalance;
-    
+ 
+     /**
+     * ======================================================================================
+     * 
+     * SYSTEM FUNCTIONS
+     * 
+     * ======================================================================================
+     */
+     
     // try rebase for user's deposit and withdraw
     modifier tryRebase() {
         if (lastRebaseTimestamp + rebasePeriod >= block.timestamp) {
             rebase();
         }
         _;    
+    }
+    
+    /**
+     * owner add new collateral
+     */
+    function newCollateral(
+        IERC20 token, 
+        address vTokenAddress,
+        uint256 assetUnit,
+        AggregatorV3Interface priceFeed
+        ) external onlyOwner
+    {
+        (, bool exist) = _findCollateral(token);
+        require(!exist, "collateral type already exist");
+        
+        uint256 currentPrice = getAssetPrice(priceFeed);
+        
+        CollateralInfo memory info;
+        info.token = token;
+        info.vTokenAddress = vTokenAddress;
+        info.assetUnit = assetUnit;
+        info.lastPrice = currentPrice;
+        info.priceFeed = priceFeed;
+
+        collaterals.push(info);
+        
+        // log
+        emit NewCollateral(token);
+    }
+    
+    /**
+     * owner remove collateral
+     */
+    function removeCollateral(IERC20 token) external onlyOwner {
+        uint n = collaterals.length;
+        for (uint i=0;i<n;i++) {
+            if (collaterals[i].token == token){
+                // copy the last element [n-1] to [i] and pop out the last
+                collaterals[i] = collaterals[n-1];
+                collaterals.pop();
+                
+                // log
+                emit RemoveCollateral(token);
+                
+                return;
+            }
+        } 
+        
+        revert("nonexistent collateral");
     }
 
     /**
@@ -671,4 +728,6 @@ contract OUROReserve is IOUROReserve,Ownable {
      event Deposit(address account, uint256 ouroAmount);
      event Withdraw(address account, address token, uint256 assetAmount);
      event Rebased(address account);
+     event NewCollateral(IERC20 token);
+     event RemoveCollateral(IERC20 token);
 }
