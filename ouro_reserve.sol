@@ -34,8 +34,8 @@ contract OUROReserve is IOUROReserve,Ownable {
     uint public ouroPriceUpdatePeriod = MONTH;
 
     address public usdtContract = 0x55d398326f99059fF775485246999027B3197955;
-    IOUROToken public ouroContract = IOUROToken(0x8f79109138200F089CE91d16966d96c1D4cd5C2a);
-    IOGSToken public ogsContract = IOGSToken(0x7e5c00a45FF501624F53c1E8283116F76324D4E0);
+    IOUROToken public ouroContract = IOUROToken(0x18221Fa6550E6Fd6EfEb9b4aE6313D07Acd824d5);
+    IOGSToken public ogsContract = IOGSToken(0x0d06E5Cb94CC56DdAd96bF7100F01873406959Ba);
     IERC20 public cakeContract = IERC20(0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82);
 
     IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
