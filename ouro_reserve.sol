@@ -37,11 +37,13 @@ contract OUROReserve is IOUROReserve,Ownable {
     IOUROToken public ouroContract = IOUROToken(0x18221Fa6550E6Fd6EfEb9b4aE6313D07Acd824d5);
     IOGSToken public ogsContract = IOGSToken(0x0d06E5Cb94CC56DdAd96bF7100F01873406959Ba);
     IERC20 public cakeContract = IERC20(0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82);
+    IERC20 public constant xvsAddress = IERC20(0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63);
 
     IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
-    uint256 constant internal MAX_UINT256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+    address immutable WETH = router.WETH();
+    uint256 constant internal MAX_UINT256 = uint256(-1);
     
-    // @dev issue schedule in million(1e6) OURO
+    // @dev montly OURO issuance schedule in million(1e6) OURO
     uint16 [] public issueSchedule = [10,30,50,70,100,150,200,300,400,500,650,800];
     uint256 internal constant issueUnit = 1e18 * 1e6;
     
@@ -55,7 +57,6 @@ contract OUROReserve is IOUROReserve,Ownable {
         uint256 assetUnit; // usually 1e18
         uint256 lastPrice; // record latest collateral price
         AggregatorV3Interface priceFeed; // asset price feed for xxx/USDT
-        bool approvedToRouter;
     }
     
     // registered collaterals for OURO
@@ -80,13 +81,18 @@ contract OUROReserve is IOUROReserve,Ownable {
         _;    
     }
     
+    constructor() public {
+        // approve xvs to router
+        xvsAddress.safeApprove(address(router), MAX_UINT256);
+    }
+    
     /**
-     * owner add new collateral
+     * @dev owner add new collateral
      */
     function newCollateral(
         IERC20 token, 
         address vTokenAddress,
-        uint256 assetUnit,
+        uint8 assetDecimal,
         AggregatorV3Interface priceFeed
         ) external onlyOwner
     {
@@ -95,28 +101,46 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         uint256 currentPrice = getAssetPrice(priceFeed);
         
+        // create collateral info 
         CollateralInfo memory info;
         info.token = token;
         info.vTokenAddress = vTokenAddress;
-        info.assetUnit = assetUnit;
+        info.assetUnit = 10 ** uint256(assetDecimal);
         info.lastPrice = currentPrice;
         info.priceFeed = priceFeed;
 
         collaterals.push(info);
         
+        // approve ERC20 collateral to swap router & vToken
+        if (address(token) != WETH) {
+            token.safeApprove(address(router), 0);
+            token.safeIncreaseAllowance(address(router), MAX_UINT256);
+            
+            token.safeApprove(vTokenAddress, 0);
+            token.safeIncreaseAllowance(vTokenAddress, MAX_UINT256);
+        }
+
         // log
         emit NewCollateral(token);
     }
     
     /**
-     * owner remove collateral
+     * @dev owner remove collateral
      */
     function removeCollateral(IERC20 token) external onlyOwner {
         uint n = collaterals.length;
         for (uint i=0;i<n;i++) {
             if (collaterals[i].token == token){
-                // copy the last element [n-1] to [i] and pop out the last
+                
+                // found! decrease router & vToken allowance to 0
+                if (address(token) != WETH) {
+                    token.safeDecreaseAllowance(address(router), 0);
+                    token.safeDecreaseAllowance(collaterals[i].vTokenAddress, MAX_UINT256);
+                }
+                
+                // copy the last element [n-1] to [i],
                 collaterals[i] = collaterals[n-1];
+                // and pop out the last element
                 collaterals.pop();
                 
                 // log
@@ -127,6 +151,28 @@ contract OUROReserve is IOUROReserve,Ownable {
         } 
         
         revert("nonexistent collateral");
+    }
+    
+    /**
+     * @dev owner reset allowance to maximum
+     * to avert uint256 exhausting
+     */
+    function resetAllowances() external onlyOwner {
+        uint n = collaterals.length;
+        for (uint i=0;i<n;i++) {
+            IERC20 token = collaterals[i].token;
+            if (address(token) != WETH) {
+                token.safeApprove(address(router), 0);
+                token.safeIncreaseAllowance(address(router), MAX_UINT256);
+                
+                token.safeApprove(collaterals[i].vTokenAddress, 0);
+                token.safeIncreaseAllowance(collaterals[i].vTokenAddress, MAX_UINT256);
+            }
+        }
+        
+        // approve xvs to router
+        xvsAddress.safeApprove(address(router), 0);
+        xvsAddress.safeIncreaseAllowance(address(router), MAX_UINT256);
     }
 
     /**
@@ -146,7 +192,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev get asset price in USDT(decimal=8) for 1 unit of asset
      */
     function getAssetPrice(AggregatorV3Interface feed) public view returns(uint256) {
-        // always align the price to BUSD decimal, which is 1e18
+        // always align the price to USDT decimal, which is 1e18
         uint256 priceAlignMultiplier = 1e18 / (10**uint256(feed.decimals()));
         
         // query price from chainlink
@@ -170,7 +216,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         require(valid, "not a valid collateral");
 
         // for native token, omit amountAsset and use msg.value instead
-        if (address(token) == router.WETH()) {
+        if (address(token) == WETH) {
             require(msg.value > 0, "0 deposit");
             amountAsset = msg.value;
         }
@@ -190,7 +236,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // transfer token assets to this contract
         // @notice for ERC20 assets, users need to approve() to this reserve contract 
-        if (address(token) != router.WETH()) {
+        if (address(token) != WETH) {
             token.safeTransferFrom(msg.sender, address(this), amountAsset);
         }
                                         
@@ -285,7 +331,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             // buy assets back to this contract
             // path:
             //  ouro-> WETH -> collateral
-            if (address(token) == router.WETH()) {
+            if (address(token) == WETH) {
                 router.swapTokensForExactETH(extraAssets, extraOuroRequired, path, address(this), block.timestamp);
             } else {
                 // swap out tokens out to OURO contract
@@ -297,7 +343,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         }
         
         // finally we transfer the assets based on assset type back to user
-        if (address(token) == router.WETH()) {
+        if (address(token) == WETH) {
             msg.sender.sendValue(amountAsset);
         } else {
             token.safeTransfer(msg.sender, amountAsset);
@@ -452,8 +498,8 @@ contract OUROReserve is IOUROReserve,Ownable {
             // conduct a ouro default price change                                
             if (ouroPrice < priceUpperLimit) {
                 // However, since there is a 3% limit on how much the OURO Default Exchange Price can increase per month, 
-                // only [100,000,000*0.03 = 3,000,000] BUSD worth of excess assets can be utilized. This 3,000,000 BUSD worth of 
-                // assets will remain in the Reserve Pool, while the remaining [50,000,000-3,000,000=47,000,000] BUSD worth 
+                // only [100,000,000*0.03 = 3,000,000] USDT worth of excess assets can be utilized. This 3,000,000 USDT worth of 
+                // assets will remain in the Reserve Pool, while the remaining [50,000,000-3,000,000=47,000,000] USDT worth 
                 // of assets will be used for OGS buyback and burns. 
                 
                 // (limit - current ouro price) / current ouro price
@@ -639,18 +685,12 @@ contract OUROReserve is IOUROReserve,Ownable {
         // the path to swap OGS out
         // path:
         //  collateral -> WETH -> exact OGS
-        if (address(collateral.token) == router.WETH()) {
+        if (address(collateral.token) == WETH) {
             
             // swap OGS out with native assets to THIS contract
             router.swapExactETHForTokens{value:collateralToBuyOGS}(ogsAmountOut, path, address(this), block.timestamp);
             
         } else {
-
-            // for ERC20 token, make sure we approved token to router
-            if (!collateral.approvedToRouter) {
-                collateral.token.approve(address(router), MAX_UINT256);
-                collateral.approvedToRouter = true;
-            }
             
             // swap OGS out to THIS contract
             router.swapExactTokensForTokens(collateralToBuyOGS, ogsAmountOut, path, address(this), block.timestamp);
@@ -704,7 +744,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         // the path to swap collateral out
         // path:
         //  (exact OGS) -> WETH -> collateral
-        if (address(collateral.token) == router.WETH()) {
+        if (address(collateral.token) == WETH) {
             // swap out native assets ETH, BNB with OGS to OURO contract
             router.swapTokensForExactETH(ogsRequired, collateralToBuyBack, path, address(this), block.timestamp);
 
