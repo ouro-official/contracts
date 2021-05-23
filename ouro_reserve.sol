@@ -83,9 +83,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     /** 
      * @dev get system defined OURO price
      */
-    function getPrice() public override returns(uint256) {
-        return ouroPrice;
-    }
+    function getPrice() public override returns(uint256) { return ouroPrice; }
     
     /**
      * @dev get asset price in USDT(decimal=8) for 1 unit of asset
@@ -120,8 +118,8 @@ contract OUROReserve is IOUROReserve,Ownable {
             amountAsset = msg.value;
         }
         
-        // calc equivalent OURO value
-        uint256 assetValueInOuro = lookupAssetOUROValue(collateral, amountAsset);
+        // get equivalent OURO value
+        uint256 assetValueInOuro = lookupAssetValueInOURO(collateral, amountAsset);
         
         // check monthly OURO issuance limit
         uint monthN = block.timestamp.sub(issueFrom).div(MONTH);
@@ -174,7 +172,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         require(valid, "not a collateral");
         
         // calc equivalent OURO value
-        uint256 assetValueInOuro = lookupAssetOUROValue(collateral, amountAsset);
+        uint256 assetValueInOuro = lookupAssetValueInOURO(collateral, amountAsset);
                                                     
         // check if we have sufficient assets to return to user
         uint256 assetBalance = _assetsBalance[address(token)];
@@ -191,11 +189,12 @@ contract OUROReserve is IOUROReserve,Ownable {
             ouroContract.burn(assetValueInOuro);
 
         } else {
+            
             // insufficient assets, redeem ALL
             _redeemToWithdraw(collateral, assetBalance);
             
-            // redeemed asset value
-            uint256 redeemedAssetValue = lookupAssetOUROValue(collateral, assetBalance);
+            // redeemed assets value in OURO
+            uint256 redeemedAssetValue = lookupAssetValueInOURO(collateral, assetBalance);
             
             // as we don't have enough assets to return to user
             // we buy extra assets from swaps with user's OURO
@@ -211,7 +210,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             uint256 extraOuroRequired = amounts[0];
             
             // @notice user needs sufficient OURO to swap assets out
-            // transfer total OURO to this contract, if user has insufficient OURO, the transaction will revert
+            // transfer total OURO to this contract, if user has insufficient OURO, the transaction will revert!
             uint256 totalOuroToBurn = extraOuroRequired.add(redeemedAssetValue);
             ouroContract.safeTransferFrom(msg.sender, address(this), totalOuroToBurn);
     
@@ -258,24 +257,18 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev find the given collateral info
      */
     function findCollateral(IERC20 token) internal view returns (CollateralInfo memory, bool) {
-        // lookup asset price
-        bool valid;
-        CollateralInfo memory collateral;
-        for (uint i=0;i<collaterals.length;i++) {
-            collateral = collaterals[i];
-            if (collateral.token == token){
-                valid = true;
-                break;
+        uint n = collaterals.length;
+        for (uint i=0;i<n;i++) {
+            if (collaterals[i].token == token){
+                return (collaterals[i], true);
             }
         }
-        
-        return (collateral, valid);
     }
     
     /**
      * @dev find the given collateral info
      */
-    function lookupAssetOUROValue(CollateralInfo memory collateral, uint256 amountAsset) internal view returns (uint256 amountOURO) {
+    function lookupAssetValueInOURO(CollateralInfo memory collateral, uint256 amountAsset) internal view returns (uint256 amountOURO) {
         // get asset value in USDT
         uint256 assetUnitPrice = getAssetPrice(collateral.priceFeed);
         
