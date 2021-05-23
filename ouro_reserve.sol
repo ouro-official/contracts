@@ -84,6 +84,8 @@ contract OUROReserve is IOUROReserve,Ownable {
     constructor() public {
         // approve xvs to router
         xvsAddress.safeApprove(address(router), MAX_UINT256);
+        // approve ogs to router
+        ogsContract.safeApprove(address(router), MAX_UINT256);
     }
     
     /**
@@ -170,9 +172,13 @@ contract OUROReserve is IOUROReserve,Ownable {
             }
         }
         
-        // approve xvs to router
+        // re-approve xvs to router
         xvsAddress.safeApprove(address(router), 0);
         xvsAddress.safeIncreaseAllowance(address(router), MAX_UINT256);
+        
+        // re-approve ogs to router
+        ogsContract.safeApprove(address(router), 0);
+        ogsContract.safeIncreaseAllowance(address(router), MAX_UINT256);
     }
 
     /**
@@ -402,7 +408,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev supply assets to venus and get vToken
      */
     function _supplyToVenus(address vTokenAddress, uint256 amount) internal {
-        if (vTokenAddress == router.WETH()) {
+        if (vTokenAddress == WETH) {
             IVBNB(vTokenAddress).mint{value: amount}();
         } else {
             IVToken(vTokenAddress).mint(amount);
@@ -430,10 +436,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     //    burn when the value of the assets held in the pool is 3% higher than the value of the issued OURO
     uint public threshold = 3;
     uint public OGSbuyBackRatio = 70; // 70% to buy back OGS
-    
-    // mark OGS approved to router
-    bool public ogsApprovedToRouter;
-    
+
     // record last Rebase time
     uint public lastRebaseTimestamp = block.timestamp;
     
@@ -474,24 +477,24 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev rebase is the stability dynamics for OURO
      */
     function _rebase() internal {
-        // get total collateral value(USDT)
+        // get total collateral value priced in USDT
         uint256 totalCollateralValue = _getTotalCollateralValue();
-        // get total OURO value(USDT)
-        uint256 totalOUROValue = ouroContract.totalSupply()
+        // get total issued OURO value priced in USDT
+        uint256 totalIssuedOUROValue =          ouroContract.totalSupply()
                                                     .mul(getPrice())
                                                     .div(OURO_PRICE_UNIT);
         
         // compute values deviates
-        if (totalCollateralValue >= totalOUROValue.mul(100+threshold).div(100)) {
+        if (totalCollateralValue >= totalIssuedOUROValue.mul(100+threshold).div(100)) {
             // collaterals has excessive value to OURO value, 
             // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
             // and conduct a token burn
-            uint256 excessiveValue = totalCollateralValue
-                                                    .sub(totalOUROValue)
+            uint256 excessiveValue =                totalCollateralValue
+                                                    .sub(totalIssuedOUROValue)
                                                     .div(100);
                                                         
             // check if price has already reached monthly limit 
-            uint256 priceUpperLimit = ouroPriceAtMonthStart
+            uint256 priceUpperLimit =               ouroPriceAtMonthStart
                                                     .mul(100+appreciationLimit)
                                                     .div(100);
                                             
@@ -504,17 +507,17 @@ contract OUROReserve is IOUROReserve,Ownable {
                 
                 // (limit - current ouro price) / current ouro price
                 // eg : (1.03 - 1.01) / 1.01 = 0.0198
-                uint256 ouroRisingSpace = priceUpperLimit.sub(ouroPrice)  // non-negative substraction
+                uint256 ouroRisingSpace =           priceUpperLimit.sub(ouroPrice)  // non-negative substraction
                                                     .mul(MULTIPLIER)
                                                     .div(ouroPrice);
 
                 // maxiumum values required to raise price to limit;
                 uint256 ouroApprecationValueLimit = ouroRisingSpace
-                                                    .mul(totalOUROValue)
+                                                    .mul(totalIssuedOUROValue)
                                                     .div(MULTIPLIER);
                 
                 // maximum excessive value usable (30%)
-                uint256 maximumUsableValue = excessiveValue
+                uint256 maximumUsableValue =        excessiveValue
                                                     .mul(100-OGSbuyBackRatio);
                 
                 // use the smaller one to appreciate OURO
@@ -522,9 +525,11 @@ contract OUROReserve is IOUROReserve,Ownable {
                 
                 // value appreciation:
                 // ouroPrice = ouroPrice * (totalOUROValue + appreciateValue) / totalOUROValue
-                ouroPrice = ouroPrice.mul(totalOUROValue+valueToAppreciate).div(totalOUROValue);
+                ouroPrice =                         ouroPrice
+                                                    .mul(totalIssuedOUROValue.add(valueToAppreciate))
+                                                    .div(totalIssuedOUROValue);
                 
-                // substract excessiveValue
+                // substract excessive value which has used to appreciate OURO price
                 excessiveValue = excessiveValue.sub(valueToAppreciate);
             }
             
@@ -533,20 +538,14 @@ contract OUROReserve is IOUROReserve,Ownable {
             if (excessiveValue > 0) {
                 // rebalance the collaterals
                 _executeRebalance(true, excessiveValue);
-                
-                // finally we need to update all collateral prices after rebalancing
-                _updateCollateralPrices();
             }
             
-        } else if (totalCollateralValue <= totalOUROValue.mul(100-threshold).div(100)) {
+        } else if (totalCollateralValue <= totalIssuedOUROValue.mul(100-threshold).div(100)) {
             // collaterals has less value to OURO value, mint new OGS to buy assets
-            uint256 valueDeviates = totalOUROValue.sub(totalCollateralValue);
+            uint256 valueDeviates = totalIssuedOUROValue.sub(totalCollateralValue);
             
             // rebalance the collaterals
             _executeRebalance(false, valueDeviates);
-            
-            // finally we need to update all collateral prices after rebalancing
-            _updateCollateralPrices();
         }
     }
     
@@ -555,13 +554,49 @@ contract OUROReserve is IOUROReserve,Ownable {
      * valueDeviates is priced in USDT
      */
     function _executeRebalance(bool buyOGS, uint256 valueDeviates) internal {
-        // we only rebalance the assets which has price deviats and omit the balanced ones
-        uint256 totalCollateralValueDeviated = _getTotalCollateralValueDeviated(buyOGS);
+        // step 1. sum total deviated collateral value 
+        uint256 totalCollateralValueDeviated;
+        for (uint i=0;i<collaterals.length;i++) {
+            CollateralInfo storage collateral = collaterals[i];
+            
+            // check new price of the assets & omit those not deviated
+            uint256 newPrice = getAssetPrice(collateral.priceFeed);
+            if (buyOGS) {
+                // omit assets deviated negatively
+                if (newPrice < collateral.lastPrice) {
+                    continue;
+                }
+            } else {
+                // omit assets deviated positively
+                if (newPrice > collateral.lastPrice) {
+                    continue;
+                }
+            }
+            
+            // accumulate value in USDT
+            totalCollateralValueDeviated += getAssetPrice(collateral.priceFeed)
+                                                .mul(_assetsBalance[address(collateral.token)])
+                                                .div(collateral.assetUnit);
+        }
         
-        // buyback operations in pro-rata basis
+        // step 2. buyback operations in pro-rata basis
         for (uint i=0;i<collaterals.length;i++) {
             CollateralInfo storage collateral = collaterals[i];
         
+            // check new price of the assets & omit those not deviated
+            uint256 newPrice = getAssetPrice(collateral.priceFeed);
+            if (buyOGS) {
+                // omit assets deviated negatively
+                if (newPrice < collateral.lastPrice) {
+                    continue;
+                }
+            } else {
+                // omit assets deviated positively
+                if (newPrice > collateral.lastPrice) {
+                    continue;
+                }
+            }
+            
             // calc slot value in USDT
             uint256 slotValue = getAssetPrice(collateral.priceFeed)
                                                 .mul(_assetsBalance[address(collateral.token)])
@@ -577,16 +612,9 @@ contract OUROReserve is IOUROReserve,Ownable {
             } else {
                 _buybackCollateral(collateral, slotBuyBackValue);
             }
-        }
-    }
-    
-    /**
-     * @dev update prices to latest 
-     */
-    function _updateCollateralPrices() internal {
-        for (uint i=0;i<collaterals.length;i++) {
-            CollateralInfo storage collateral = collaterals[i];
-            collateral.lastPrice = getAssetPrice(collateral.priceFeed);
+            
+            // update the collateral price to lastest
+            collateral.lastPrice = newPrice;
         }
     }
     
@@ -616,38 +644,6 @@ contract OUROReserve is IOUROReserve,Ownable {
         }
         
         return totalCollateralValue;
-    }
-    
-    /**
-     * @dev get total collateral value which deviated
-     */
-    function _getTotalCollateralValueDeviated(bool buyOGS) internal view returns(uint256) {
-        // count total deviated collateral value 
-        uint256 deviatedCollateralValue;
-        for (uint i=0;i<collaterals.length;i++) {
-            CollateralInfo storage collateral = collaterals[i];
-            
-            // check new price of the assets & omit those not deviated
-            uint256 newPrice = getAssetPrice(collateral.priceFeed);
-            if (buyOGS) {
-                // omit assets deviated negatively
-                if (newPrice < collateral.lastPrice) {
-                    continue;
-                }
-            } else {
-                // omit assets deviated positively
-                if (newPrice > collateral.lastPrice) {
-                    continue;
-                }
-            }
-            
-            // accumulate value in USDT
-            deviatedCollateralValue += getAssetPrice(collateral.priceFeed)
-                                    .mul(_assetsBalance[address(collateral.token)])
-                                    .div(collateral.assetUnit);
-        }
-        
-        return deviatedCollateralValue;
     }
     
     /**
@@ -734,12 +730,6 @@ contract OUROReserve is IOUROReserve,Ownable {
         // mint OGS to this contract to buy back collateral           
         // NOTE: ogs contract MUST authorized THIS contract the privilege to mint
         ogsContract.mint(address(this), ogsRequired);
-        
-        // make sure we approved OGS to router
-        if (!ogsApprovedToRouter) {
-            ogsContract.approve(address(router), MAX_UINT256);
-            ogsApprovedToRouter = true;
-        }
 
         // the path to swap collateral out
         // path:
