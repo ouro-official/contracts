@@ -233,7 +233,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     /** 
      * @dev get system defined OURO price
      */
-    function getPrice() public override returns(uint256) { return ouroPrice; }
+    function getPrice() public view override returns(uint256) { return ouroPrice; }
     
     /**
      * @dev get asset price in USDT(decimal=8) for 1 unit of asset

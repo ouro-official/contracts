@@ -1160,13 +1160,9 @@ interface IOUROToken is IERC20 {
 }
 
 interface IOUROReserve {
-    function getPrice() external returns(uint256);
+    function getPrice() external view returns(uint256);
     function deposit(address token, uint256 amountAsset) external payable;
     function withdraw(address token, uint256 amountAsset) external;
-}
-
-interface IFeeLP {
-    function formLP() external;
 }
 
 interface IVenusDistribution {
