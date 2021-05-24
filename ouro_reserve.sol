@@ -104,7 +104,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      
     // try rebase for user's deposit and withdraw
     modifier tryRebase() {
-        if (lastRebaseTimestamp + rebasePeriod >= block.timestamp) {
+        if (block.timestamp > lastRebaseTimestamp + rebasePeriod) {
             rebase();
         }
         _;    
@@ -510,23 +510,21 @@ contract OUROReserve is IOUROReserve,Ownable {
      */
     function rebase() public {
          // rebase period check
-        require(lastRebaseTimestamp + rebasePeriod < block.timestamp, "aggressive rebase");
+        require(block.timestamp > lastRebaseTimestamp + rebasePeriod, "aggressive rebase");
         
         // rebase collaterals
         _rebase();
-        
-        // book keeping after rebase
-        if (block.timestamp < ouroLastPriceUpdate + ouroPriceUpdatePeriod) {
-            return;
-        }
-        
-        // record price at month begins
-        ouroLastPriceUpdate = block.timestamp;
-        ouroPriceAtMonthStart = ouroPrice;
-        
+                
         // update rebase time
         lastRebaseTimestamp += rebasePeriod;
         
+        // book keeping after rebase
+        if (block.timestamp > ouroLastPriceUpdate + ouroPriceUpdatePeriod) {
+            // record price at month begins
+            ouroPriceAtMonthStart = ouroPrice;
+            ouroLastPriceUpdate = block.timestamp;
+        }
+
         // log
         emit Rebased(msg.sender);
     }
