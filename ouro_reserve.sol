@@ -36,7 +36,9 @@ contract OUROReserve is IOUROReserve,Ownable {
     address public usdtContract = 0x55d398326f99059fF775485246999027B3197955;
     IOUROToken public ouroContract = IOUROToken(0x18221Fa6550E6Fd6EfEb9b4aE6313D07Acd824d5);
     IOGSToken public ogsContract = IOGSToken(0x0d06E5Cb94CC56DdAd96bF7100F01873406959Ba);
+    address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
+    address[] venusMarkets;
 
     IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
     address immutable WETH = router.WETH();
@@ -120,6 +122,9 @@ contract OUROReserve is IOUROReserve,Ownable {
             IERC20(token).safeApprove(vTokenAddress, 0);
             IERC20(token).safeIncreaseAllowance(vTokenAddress, MAX_UINT256);
         }
+        
+        // enter markets
+        venusMarkets.push(vTokenAddress);
 
         // log
         emit NewCollateral(token);
@@ -772,7 +777,34 @@ contract OUROReserve is IOUROReserve,Ownable {
      *
      * ======================================================================================
      */
-     function distributeRevenue() external {
+     function distributeRevenue() external onlyOwner {
+        // claim venus XVS reward
+        IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
+        
+        // and exchange XVS to OGS
+        address[] memory path = new address[](3);
+        path[0] = xvsAddress;
+        path[1] = usdtContract;
+        path[2] = address(ogsContract);
+
+        // swap all XVS to OGS
+        uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
+        uint [] memory amounts = router.getAmountsOut(xvsAmount, path);
+        uint256 ogsAmountOut = amounts[2];
+        
+        // swap out ERC20 assets out
+        router.swapTokensForExactTokens(
+            ogsAmountOut, 
+            xvsAmount, 
+            path, 
+            address(this), 
+            block.timestamp.add(600)
+        );
+
+        // burn OGS
+        ogsContract.burn(ogsAmountOut);
+        
+        // distribute assets revenue 
         uint n = collaterals.length;
         for (uint i=0;i<n;i++) {
             CollateralInfo storage collateral = collaterals[i];

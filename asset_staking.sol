@@ -221,7 +221,7 @@ contract AssetStaking is Ownable {
         IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
         
         // and exchange XVS to assets
-        address[] memory path = new address[](2);
+        address[] memory path = new address[](3);
         path[0] = xvsAddress;
         path[1] = usdtContract; // always use USDT to bridge
         path[2] = address(AssetContract);
@@ -263,9 +263,9 @@ contract AssetStaking is Ownable {
         uint256 totalRevenue = asssetsRevenue + assetOut;
         uint256 ouroBalance = OUROContract.balanceOf(address(this));
         if (isNativeToken) {
-            IOUROReserve(ouroReserveAddress).deposit{value:totalRevenue}(AssetContract, 0);
+            IOUROReserve(ouroReserveAddress).deposit{value:totalRevenue}(address(AssetContract), 0);
         } else {
-            IOUROReserve(ouroReserveAddress).deposit(AssetContract, totalRevenue);
+            IOUROReserve(ouroReserveAddress).deposit(address(AssetContract), totalRevenue);
         }
         
         // step 4. compute diff for new ouro and set share based on current stakers pro-rata
