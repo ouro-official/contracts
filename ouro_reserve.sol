@@ -26,22 +26,22 @@ contract OUROReserve is IOUROReserve,Ownable {
     // @dev ouro price 
     uint256 public ouroPrice = 1e18; // current ouro price, initially 1 OURO = 1 USDT
     uint256 public ouroPriceAtMonthStart = 1e18; // ouro price at the begining of a month, initially set to 1 USDT
-    uint256 public OURO_PRICE_UNIT = 1e18; // 1 OURO = 1e18
+    uint256 public constant OURO_PRICE_UNIT = 1e18; // 1 OURO = 1e18
     
     uint256 internal constant MONTH = 30 days;
     uint public appreciationLimit = 3; // 3 percent monthly OURO price appreciation limit
     uint public ouroLastPriceUpdate = block.timestamp;
-    uint public ouroPriceUpdatePeriod = MONTH;
+    uint public constant ouroPriceUpdatePeriod = MONTH;
 
-    address public usdtContract = 0x55d398326f99059fF775485246999027B3197955;
-    IOUROToken public ouroContract = IOUROToken(0x18221Fa6550E6Fd6EfEb9b4aE6313D07Acd824d5);
-    IOGSToken public ogsContract = IOGSToken(0x0d06E5Cb94CC56DdAd96bF7100F01873406959Ba);
+    address public constant usdtContract = 0x55d398326f99059fF775485246999027B3197955;
+    IOUROToken public constant ouroContract = IOUROToken(0x18221Fa6550E6Fd6EfEb9b4aE6313D07Acd824d5);
+    IOGSToken public constant ogsContract = IOGSToken(0x0d06E5Cb94CC56DdAd96bF7100F01873406959Ba);
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
-    address[] venusMarkets;
-
-    IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
-    address immutable WETH = router.WETH();
+    IPancakeRouter02 public constant router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
+    
+    address immutable internal WETH = router.WETH();
+    uint256 constant internal USDT_UNIT = 1e18;
     uint256 constant internal MAX_UINT256 = uint256(-1);
     
     // @dev montly OURO issuance schedule in million(1e6) OURO
@@ -49,9 +49,9 @@ contract OUROReserve is IOUROReserve,Ownable {
     uint256 internal constant issueUnit = 1e18 * 1e6;
     
     // @dev scheduled issue from
-    uint256 public issueFrom = block.timestamp;
+    uint256 public immutable issueFrom = block.timestamp;
     
-    // CollateralInfo
+    // a struct to storge collateral asset info
     struct CollateralInfo {
         address token;
         address vTokenAddress;
@@ -60,12 +60,40 @@ contract OUROReserve is IOUROReserve,Ownable {
         AggregatorV3Interface priceFeed; // asset price feed for xxx/USDT
     }
     
-    // registered collaterals for OURO
-    CollateralInfo [] public collaterals;
+    // all registered collaterals for OURO
+    CollateralInfo [] private collaterals;
     
     // a mapping to track the balance of assets;
     mapping (address => uint256) private _assetsBalance;
- 
+    
+    /**
+     * ======================================================================================
+     * 
+     * VIEW FUNCTIONS
+     * 
+     * ======================================================================================
+     */
+    function getAssetBalance(address token) external view returns(uint256) {
+        return _assetsBalance[token];
+    }
+    
+    function getCollateral(address token) external view returns (
+        address vTokenAddress,
+        uint256 assetUnit, // usually 1e18
+        uint256 lastPrice, // record latest collateral price
+        AggregatorV3Interface priceFeed // asset price feed for xxx/USDT
+    ) {
+        (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
+        if (valid) {
+            return (
+                collateral.vTokenAddress,
+                collateral.assetUnit,
+                collateral.lastPrice,
+                collateral.priceFeed
+            );
+        }
+    }
+    
      /**
      * ======================================================================================
      * 
@@ -124,7 +152,9 @@ contract OUROReserve is IOUROReserve,Ownable {
         }
         
         // enter markets
-        venusMarkets.push(vTokenAddress);
+        address[] memory venusMarkets = new address[](1);
+        venusMarkets[0] = vTokenAddress;
+        IVenusDistribution(unitroller).enterMarkets(venusMarkets);
 
         // log
         emit NewCollateral(token);
@@ -138,11 +168,14 @@ contract OUROReserve is IOUROReserve,Ownable {
         for (uint i=0;i<n;i++) {
             if (collaterals[i].token == token){
                 
-                // found! decrease router & vToken allowance to 0
+                // found! revoke router & vToken allowance to 0
                 if (address(token) != WETH) {
-                    IERC20(token).safeDecreaseAllowance(address(router), 0);
-                    IERC20(token).safeDecreaseAllowance(collaterals[i].vTokenAddress, MAX_UINT256);
+                    IERC20(token).safeApprove(address(router), 0);
+                    IERC20(token).safeApprove(collaterals[i].vTokenAddress, 0);
                 }
+                
+                // exit venus markets
+                IVenusDistribution(unitroller).exitMarket(collaterals[i].vTokenAddress);
                 
                 // copy the last element [n-1] to [i],
                 collaterals[i] = collaterals[n-1];
@@ -168,6 +201,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         for (uint i=0;i<n;i++) {
             IERC20 token = IERC20(collaterals[i].token);
             if (address(token) != WETH) {
+                // re-approve asset to venus
                 token.safeApprove(address(router), 0);
                 token.safeIncreaseAllowance(address(router), MAX_UINT256);
                 
@@ -205,8 +239,8 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev get asset price in USDT(decimal=8) for 1 unit of asset
      */
     function getAssetPrice(AggregatorV3Interface feed) public view returns(uint256) {
-        // always align the price to USDT decimal, which is 1e18
-        uint256 priceAlignMultiplier = 1e18 / (10**uint256(feed.decimals()));
+        // always align the price to USDT decimal, which is 1e18 on BSC and 1e6 on Ethereum
+        uint256 priceAlignMultiplier = USDT_UNIT / (10**uint256(feed.decimals()));
         
         // query price from chainlink
         (, int latestPrice, , , ) = feed.latestRoundData();
@@ -228,18 +262,20 @@ contract OUROReserve is IOUROReserve,Ownable {
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
         require(valid, "not a valid collateral");
 
-        // for native token, omit amountAsset and use msg.value instead
-        if (address(token) == WETH) {
-            require(msg.value > 0, "0 deposit");
+        // for native token, replace amountAsset with use msg.value instead
+        if (token == WETH) {
             amountAsset = msg.value;
         }
         
+        // non-0 deposit check
+        require(amountAsset > 0, "0 deposit");
+
         // get equivalent OURO value
         uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral, amountAsset);
         
         // check monthly OURO issuance limit
         uint monthN = block.timestamp.sub(issueFrom).div(MONTH);
-        if (monthN < issueSchedule.length) { // still needs control
+        if (monthN < issueSchedule.length) { // still in control
             require(assetValueInOuro + IERC20(ouroContract).totalSupply() 
                         <=
                     uint256(issueSchedule[monthN]).mul(issueUnit),
@@ -259,7 +295,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         // update asset balance
         _assetsBalance[address(token)] += amountAsset;
 
-        // finally we farm the assets
+        // finally we farm the assets received
         _supply(collateral, amountAsset);
         
         // log
@@ -289,10 +325,13 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // perform OURO token burn
         if (assetBalance >= amountAsset) {
+            // substract asset balance
+            _assetsBalance[address(token)] -= amountAsset;
+            
             // redeem assets
             _redeemSupply(collateral, amountAsset);
                     
-            // sufficent asset satisfied! transfer user's equivalent OURO to this contract directly
+            // sufficient asset satisfied! transfer user's equivalent OURO token to this contract directly
             uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral, amountAsset);
             IERC20(ouroContract).safeTransferFrom(msg.sender, address(this), assetValueInOuro);
             
@@ -300,6 +339,8 @@ contract OUROReserve is IOUROReserve,Ownable {
             IOUROToken(ouroContract).burn(assetValueInOuro);
 
         } else {
+            // drain asset balance
+            _assetsBalance[address(token)] = 0;
             
             // insufficient assets, redeem ALL
             _redeemSupply(collateral, assetBalance);
@@ -340,25 +381,34 @@ contract OUROReserve is IOUROReserve,Ownable {
             // path:
             //  ouro-> (USDT) -> collateral
             if (token == WETH) {
-                router.swapTokensForExactETH(extraAssets, extraOuroRequired, path, address(this), block.timestamp);
+                router.swapTokensForExactETH(
+                    extraAssets, 
+                    extraOuroRequired, 
+                    path, 
+                    address(this), 
+                    block.timestamp.add(600)
+                );
             } else {
                 // swap out tokens out to OURO contract
-                router.swapTokensForExactTokens(extraAssets, extraOuroRequired, path, address(this), block.timestamp);
+                router.swapTokensForExactTokens(
+                    extraAssets, 
+                    extraOuroRequired, 
+                    path, 
+                    address(this), 
+                    block.timestamp.add(600)
+                );
             }
             
             // burn OURO
             ouroContract.burn(totalOuroToBurn);
         }
         
-        // finally we transfer the assets based on assset type back to user
+        // finally we transfer the assets based on asset type back to user
         if (token == WETH) {
             msg.sender.sendValue(amountAsset);
         } else {
             IERC20(token).safeTransfer(msg.sender, amountAsset);
         }
-        
-        // update asset balance
-        _assetsBalance[address(token)] -= amountAsset;
         
         // log withdraw
         emit Withdraw(msg.sender, address(token), amountAsset);
@@ -368,8 +418,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev redeem assets from farm
      */
     function _redeemSupply(CollateralInfo memory collateral, uint256 amountAsset) internal {
-        // CAKE will be transferred to PancakeSwap’s “Auto CAKE” pool to earn CAKE rewards. 
-        // other assets will be transferred to Venus to earn yield from lending. 
+        // assets will be transferred to Venus to earn yield from lending. 
         _removeSupplyFromVenus(collateral.vTokenAddress, amountAsset);
     }
 
@@ -445,7 +494,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     uint public rebasePeriod = 1 days;
 
     // multiplier
-    uint constant MULTIPLIER = 1e12;
+    uint internal constant MULTIPLIER = 1e12;
 
     /**
      * @dev set rebase period
@@ -461,7 +510,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      */
     function rebase() public {
          // rebase period check
-        require(lastRebaseTimestamp + rebasePeriod < block.timestamp,"aggressive rebase");
+        require(lastRebaseTimestamp + rebasePeriod < block.timestamp, "aggressive rebase");
         
         // rebase collaterals
         _rebase();
@@ -628,7 +677,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     }
 
     /**
-     * @dev get total collateral value
+     * @dev get total collateral value in USDT
      */
     function _getTotalCollateralValue() internal view returns(uint256) {
         uint256 totalCollateralValue;
@@ -778,6 +827,11 @@ contract OUROReserve is IOUROReserve,Ownable {
      * ======================================================================================
      */
      function distributeRevenue() external onlyOwner {
+        // get venus markets
+        address[] memory venusMarkets = new address[](collaterals.length);
+        for (uint i=0;i<collaterals.length;i++) {
+            venusMarkets[i] = collaterals[i].vTokenAddress;
+        }
         // claim venus XVS reward
         IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
         
@@ -792,7 +846,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         uint [] memory amounts = router.getAmountsOut(xvsAmount, path);
         uint256 ogsAmountOut = amounts[2];
         
-        // swap out ERC20 assets out
+        // swap OGS out
         router.swapTokensForExactTokens(
             ogsAmountOut, 
             xvsAmount, 
@@ -911,8 +965,6 @@ contract OUROReserve is IOUROReserve,Ownable {
         // path:
         //  collateral -> USDT -> exact OGS
         if (collateral.token == WETH) {
-            
-            // swap OGS out with native assets to THIS contract
             router.swapExactETHForTokens{value:assetToBuyOGS}(
                 ogsAmountOut, 
                 path, 
@@ -921,8 +973,6 @@ contract OUROReserve is IOUROReserve,Ownable {
             );
             
         } else {
-            
-            // swap OGS out
             router.swapExactTokensForTokens(
                 assetToBuyOGS, 
                 ogsAmountOut, 
@@ -932,8 +982,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             );
         }
 
-        // the reset to buy USDT
-        uint256 usdtAmountOut = assetAmount.sub(assetToBuyOGS);
+        // the rest revenue will be used to buy USDT
         if (collateral.token != usdtContract) {
             path = new address[](2);
             path[0] = collateral.token;
@@ -946,25 +995,23 @@ contract OUROReserve is IOUROReserve,Ownable {
 
             // get usdt amount out
             amounts = router.getAmountsOut(assetToBuyUSDT, path);
-            usdtAmountOut = amounts[amounts.length - 1];
+            uint256 usdtAmountOut = amounts[amounts.length - 1];
             
             // the path to swap USDT out
             // path:
             //  collateral -> USDT
             if (collateral.token == WETH) {
-                // swap OGS out with native assets to THIS contract
                 router.swapExactETHForTokens{value:assetToBuyUSDT}(
-                    ogsAmountOut, 
+                    usdtAmountOut, 
                     path, 
                     address(this), 
                     block.timestamp.add(600)
                 );
                 
             } else {
-                // swap OGS out to THIS contract
                 router.swapExactTokensForTokens(
                     assetToBuyUSDT, 
-                    ogsAmountOut, 
+                    usdtAmountOut, 
                     path, 
                     address(this), 
                     block.timestamp.add(600)

@@ -142,12 +142,16 @@ contract AssetStaking is Ownable {
         
         uint newMinedShare;
         if (_totalStaked > 0) {
-            uint blocksToReward = block.number.sub(_lastRewardBlock);
-            uint mintedReward = BlockReward.mul(blocksToReward);
+            uint blocksToReward = block.number
+                                            .sub(_lastRewardBlock);
+                                            
+            uint mintedReward = BlockReward
+                                            .mul(blocksToReward);
     
             // reward share
-            newMinedShare = mintedReward.mul(SHARE_MULTIPLIER)
-                                        .div(_totalStaked);
+            newMinedShare = mintedReward
+                                            .mul(SHARE_MULTIPLIER)
+                                            .div(_totalStaked);
         }
         
         return _rewardBalance[account] + (unsettledShare + newMinedShare).mul(accountCollateral)
@@ -229,14 +233,25 @@ contract AssetStaking is Ownable {
         // swap all XVS to staking asset
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
         uint [] memory amounts = router.getAmountsOut(xvsAmount, path);
-        uint256 assetOut = amounts[2];
+        uint256 assetOut = amounts[path.length - 1];
         
         if (isNativeToken) {
             // for native token, swap out native assets ETH, BNB with XVS
-            router.swapTokensForExactETH(assetOut, xvsAmount, path, address(this), block.timestamp);
+            router.swapTokensForExactETH(assetOut, 
+                xvsAmount, 
+                path, 
+                address(this), 
+                block.timestamp.add(600)
+            );
         } else {
             // swap out ERC20 assets out
-            router.swapTokensForExactTokens(assetOut, xvsAmount, path, address(this), block.timestamp);
+            router.swapTokensForExactTokens(
+                assetOut, 
+                xvsAmount, 
+                path, 
+                address(this), 
+                block.timestamp.add(600)
+            );
         }
 
         // step 2.check if farming has assets revenue        
