@@ -437,7 +437,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     //    assets held in the pool is more than 3% less than the value of the issued OURO.
     // 2. The system will only use excess collateral in the pool to conduct OGS buy back and 
     //    burn when the value of the assets held in the pool is 3% higher than the value of the issued OURO
-    uint public threshold = 3;
+    uint public rebalanceThreshold = 3;
     uint public OGSbuyBackRatio = 70; // 70% to buy back OGS
 
     // record last Rebase time
@@ -496,7 +496,7 @@ contract OUROReserve is IOUROReserve,Ownable {
                                                     .div(OURO_PRICE_UNIT);
         
         // compute values deviates
-        if (totalCollateralValue >= totalIssuedOUROValue.mul(100+threshold).div(100)) {
+        if (totalCollateralValue >= totalIssuedOUROValue.mul(100+rebalanceThreshold).div(100)) {
             // collaterals has excessive value to OURO value, 
             // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
             // and conduct a token burn
@@ -551,7 +551,7 @@ contract OUROReserve is IOUROReserve,Ownable {
                 _executeRebalance(true, excessiveValue);
             }
             
-        } else if (totalCollateralValue <= totalIssuedOUROValue.mul(100-threshold).div(100)) {
+        } else if (totalCollateralValue <= totalIssuedOUROValue.mul(100-rebalanceThreshold).div(100)) {
             // collaterals has less value to OURO value, mint new OGS to buy assets
             uint256 valueDeviates = totalIssuedOUROValue.sub(totalCollateralValue);
             
@@ -747,6 +747,110 @@ contract OUROReserve is IOUROReserve,Ownable {
         // accounting
         _assetsBalance[address(collateral.token)] = _assetsBalance[address(collateral.token)].add(collateralToBuyBack);
     }
+    
+    /**
+     * ======================================================================================
+     * 
+     * OURO's farming revenue distribution
+     *
+     * ======================================================================================
+     */
+     function distributeRevenue() external {
+        uint n = collaterals.length;
+        for (uint i=0;i<n;i++) {
+            CollateralInfo storage collateral = collaterals[i];
+            // get underlying balance
+            uint256 farmBalance = IVToken(collateral.vTokenAddress).balanceOfUnderlying(address(this));
+            
+            // revenue generated
+            if (farmBalance > _assetsBalance[address(collateral.token)]) {
+                // redeem asset
+                uint256 revenue = farmBalance.sub(_assetsBalance[address(collateral.token)]);
+                IVToken(collateral.vTokenAddress).redeemUnderlying(revenue);
+                
+                // 50% - OGS token buy back and burn.
+                uint256 revenueToBuyBack = revenue
+                                            .mul(50)
+                                            .div(100);
+                                            
+                _revenueToBuyBack(collateral, revenueToBuyBack);
+                
+                // 50% - Split to form LP tokens for the platform. 
+                uint256 revenueToFormLP = revenue.sub(revenueToBuyBack);
+                _revenueToFormLP(collateral, revenueToFormLP);
+            }
+        }
+     }
+     
+     /**
+      * revenue to buy back OGS
+      */
+     function _revenueToBuyBack(CollateralInfo storage collateral, uint256 assetAmount) internal {
+        // buy back OGS
+        address[] memory path;
+        if (address(collateral.token) == usdtContract) {
+            path = new address[](2);
+            path[0] = address(collateral.token);
+            path[1] = address(ogsContract);
+        } else {
+            path = new address[](3);
+            path[0] = address(collateral.token);
+            path[1] = address(usdtContract); // use USDT to bridge
+            path[2] = address(ogsContract);
+        }
+            
+        uint [] memory amounts = router.getAmountsOut(assetAmount, path);
+        uint256 ogsAmountOut = amounts[amounts.length - 1];
+        
+        // the path to swap OGS out
+        // path:
+        //  collateral -> USDT -> exact OGS
+        if (address(collateral.token) == WETH) {
+            // swap OGS out with native assets to THIS contract
+            router.swapExactETHForTokens{value:assetAmount}(ogsAmountOut, path, address(this), block.timestamp);
+        } else {
+            // swap OGS out to THIS contract
+            router.swapExactTokensForTokens(assetAmount, ogsAmountOut, path, address(this), block.timestamp);
+        }
+
+        // burn OGS
+        ogsContract.burn(ogsAmountOut);
+     }
+     
+     /**
+      * revenue to form LP token
+      */
+     function _revenueToFormLP(CollateralInfo storage collateral, uint256 assetAmount) internal {
+        // buy back OGS
+        address[] memory path;
+        if (address(collateral.token) == usdtContract) {
+            path = new address[](2);
+            path[0] = address(collateral.token);
+            path[1] = address(ogsContract);
+        } else {
+            path = new address[](3);
+            path[0] = address(collateral.token);
+            path[1] = address(usdtContract); // use USDT to bridge
+            path[2] = address(ogsContract);
+        }
+            
+        uint [] memory amounts = router.getAmountsOut(assetAmount, path);
+        uint256 ogsAmountOut = amounts[amounts.length - 1];
+        
+        // the path to swap OGS out
+        // path:
+        //  collateral -> USDT -> exact OGS
+        if (address(collateral.token) == WETH) {
+            // swap OGS out with native assets to THIS contract
+            router.swapExactETHForTokens{value:assetAmount}(ogsAmountOut, path, address(this), block.timestamp);
+        } else {
+            // swap OGS out to THIS contract
+            router.swapExactTokensForTokens(assetAmount, ogsAmountOut, path, address(this), block.timestamp);
+        }
+
+        // burn OGS
+        ogsContract.burn(ogsAmountOut);
+     }
     
     /**
      * ======================================================================================
