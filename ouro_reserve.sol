@@ -29,7 +29,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     uint256 public constant OURO_PRICE_UNIT = 1e18; // 1 OURO = 1e18
     
     uint256 internal constant MONTH = 30 days;
-    uint public appreciationLimit = 3; // 3 percent monthly OURO price appreciation limit
+    uint public appreciationLimit = 3; // 3 perce nt monthly OURO price appreciation limit
     uint public ouroLastPriceUpdate = block.timestamp;
     uint public constant ouroPriceUpdatePeriod = MONTH;
 
@@ -128,7 +128,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         ) external onlyOwner
     {
         (, bool exist) = _findCollateral(token);
-        require(!exist, "collateral type already exist");
+        require(!exist, "exist");
         
         uint256 currentPrice = getAssetPrice(priceFeed);
         
@@ -189,7 +189,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             }
         } 
         
-        revert("nonexistent collateral");
+        revert("nonexistent");
     }
     
     /**
@@ -246,7 +246,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         (, int latestPrice, , , ) = feed.latestRoundData();
 
         // avert negative price
-        require (latestPrice > 0, "invalid price feed");
+        require (latestPrice > 0, "invalid price");
         
         // return price corrected to USDT decimal
         return uint256(latestPrice).mul(priceAlignMultiplier);
@@ -260,7 +260,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
-        require(valid, "not a valid collateral");
+        require(valid, "invalid collateral");
 
         // for native token, replace amountAsset with use msg.value instead
         if (token == WETH) {
@@ -279,7 +279,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             require(assetValueInOuro + IERC20(ouroContract).totalSupply() 
                         <=
                     uint256(issueSchedule[monthN]).mul(issueUnit),
-                    "issuance limited"
+                    "limited"
             );
         }
         
@@ -405,15 +405,17 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // finally we transfer the assets based on asset type back to user
         if (token == WETH) {
-            msg.sender.sendValue(amountAsset);
+            uint256 value = address(this).balance < amountAsset? address(this).balance:amountAsset;
+            msg.sender.sendValue(value);
         } else {
-            IERC20(token).safeTransfer(msg.sender, amountAsset);
+            uint256 value = IERC20(token).balanceOf(address(this)) < amountAsset? IERC20(token).balanceOf(address(this)):amountAsset;
+            IERC20(token).safeTransfer(msg.sender, value);
         }
         
         // log withdraw
         emit Withdraw(msg.sender, address(token), amountAsset);
     }
-    
+
     /**
      * @dev redeem assets from farm
      */
@@ -700,6 +702,12 @@ contract OUROReserve is IOUROReserve,Ownable {
 
         // redeem supply from farming
         _redeemSupply(collateral, collateralToBuyOGS);
+        uint256 redeemedAmount;
+        if (collateral.token == WETH) {
+            redeemedAmount = address(this).balance;
+        } else {
+            redeemedAmount = IERC20(collateral.token).balanceOf(address(this));
+        }
         
         // the path to find how many OGS can be swapped
         // path:
@@ -718,7 +726,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         }
         
         // calc amount OGS that could be swapped out with given collateral
-        uint [] memory amounts = router.getAmountsOut(collateralToBuyOGS, path);
+        uint [] memory amounts = router.getAmountsOut(redeemedAmount, path);
         uint256 ogsAmountOut = amounts[amounts.length - 1];
         
         // the path to swap OGS out
@@ -727,7 +735,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         if (collateral.token == WETH) {
             
             // swap OGS out with native assets to THIS contract
-            router.swapExactETHForTokens{value:collateralToBuyOGS}(
+            router.swapExactETHForTokens{value:redeemedAmount}(
                 ogsAmountOut, 
                 path, 
                 address(this), 
@@ -738,7 +746,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             
             // swap OGS out to THIS contract
             router.swapExactTokensForTokens(
-                collateralToBuyOGS, 
+                redeemedAmount, 
                 ogsAmountOut, 
                 path, 
                 address(this), 
@@ -750,7 +758,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         ogsContract.burn(ogsAmountOut);
         
         // accounting
-        _assetsBalance[collateral.token] = _assetsBalance[collateral.token].sub(collateralToBuyOGS);
+        _assetsBalance[collateral.token] = _assetsBalance[collateral.token].sub(redeemedAmount);
     }
     
     /**
@@ -869,8 +877,16 @@ contract OUROReserve is IOUROReserve,Ownable {
                 uint256 revenue = farmBalance.sub(_assetsBalance[collateral.token]);
                 IVToken(collateral.vTokenAddress).redeemUnderlying(revenue);
                 
+                // get actual revenue arrival
+                uint256 redeemedAmount;
+                if (collateral.token == WETH) {
+                    redeemedAmount = address(this).balance;
+                } else {
+                    redeemedAmount = IERC20(collateral.token).balanceOf(address(this));
+                }
+                
                 // 50% - OGS token buy back and burn.
-                uint256 revenueToBuyBack = revenue
+                uint256 revenueToBuyBack = redeemedAmount
                                             .mul(50)
                                             .div(100);
                                             
