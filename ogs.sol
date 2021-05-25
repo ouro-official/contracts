@@ -46,7 +46,7 @@ contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
     /**
      * @dev set or remove address to mintable group
      */
-    function setMintable(address account, bool allow) public onlyOwner {
+    function setMintable(address account, bool allow) public override onlyOwner {
         mintableGroup[account] = allow;
         if (allow) {
             emit Mintable(account);

@@ -46,7 +46,7 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
     /**
      * @dev set or remove address to mintable group
      */
-    function setMintable(address account, bool allow) public onlyOwner {
+    function setMintable(address account, bool allow) public override onlyOwner {
         mintableGroup[account] = allow;
         if (allow) {
             emit Mintable(account);
