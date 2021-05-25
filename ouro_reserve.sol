@@ -36,7 +36,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     address public constant usdtContract = 0x55d398326f99059fF775485246999027B3197955;
     IOUROToken public constant ouroContract = IOUROToken(0x18221Fa6550E6Fd6EfEb9b4aE6313D07Acd824d5);
     IOGSToken public constant ogsContract = IOGSToken(0x0d06E5Cb94CC56DdAd96bF7100F01873406959Ba);
-    IOURORevenue public ouroRevenueContact = IOURORevenue(0x7341a9e16120a7b6aa3a98e51851f33Fb5F07E07);
+    IOURODist public ouroDistContact = IOURODist(0x7341a9e16120a7b6aa3a98e51851f33Fb5F07E07);
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
     IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
@@ -307,8 +307,11 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev farm the user's deposit
      */
     function _supply(CollateralInfo memory collateral, uint256 amountAsset) internal {
-        // assets will be transferred to Venus to earn yield from lending. 
-        _supplyToVenus(collateral.vTokenAddress, amountAsset);
+        if (collateral.token == WETH) {
+            IVBNB(collateral.vTokenAddress).mint{value: amountAsset}();
+        } else {
+            IVToken(collateral.vTokenAddress).mint(amountAsset);
+        }
     }
     
     /**
@@ -421,8 +424,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev redeem assets from farm
      */
     function _redeemSupply(CollateralInfo memory collateral, uint256 amountAsset) internal {
-        // assets will be transferred to Venus to earn yield from lending. 
-        _removeSupplyFromVenus(collateral.vTokenAddress, amountAsset);
+        IVToken(collateral.vTokenAddress).redeemUnderlying(amountAsset);
     }
 
     /**
@@ -455,26 +457,7 @@ contract OUROReserve is IOUROReserve,Ownable {
                                                     
         return assetValueInOuro;
     }
-    
-    /**
-     * @dev supply assets to venus and get vToken
-     */
-    function _supplyToVenus(address vTokenAddress, uint256 amount) internal {
-        if (vTokenAddress == WETH) {
-            IVBNB(vTokenAddress).mint{value: amount}();
-        } else {
-            IVToken(vTokenAddress).mint(amount);
-        }
-    }
-    
-    /**
-     * @dev redeeming assets
-     */
-    function _removeSupplyFromVenus(address vTokenAddress, uint256 amount) internal {
-        IVToken(vTokenAddress).redeemUnderlying(amount);
-    }
-    
-    
+
     /**
      * ======================================================================================
      * 
@@ -838,8 +821,8 @@ contract OUROReserve is IOUROReserve,Ownable {
       * @dev change ouro revenue distribution contract address
       * in case of severe bug
       */
-     function changeOURORevenueDist(address newContract) external onlyOwner {
-         ouroRevenueContact = IOURORevenue(newContract);
+     function changeOURODist(address newContract) external onlyOwner {
+         ouroDistContact = IOURODist(newContract);
      }
      
      /**
@@ -900,13 +883,13 @@ contract OUROReserve is IOUROReserve,Ownable {
                 
                 // transfer asset to ouro revenue distribution contract
                 if (collateral.token == WETH) {
-                    payable(address(ouroRevenueContact)).sendValue(redeemedAmount);
+                    payable(address(ouroDistContact)).sendValue(redeemedAmount);
                 } else {
-                    IERC20(collateral.token).safeTransfer(address(ouroRevenueContact), redeemedAmount);
+                    IERC20(collateral.token).safeTransfer(address(ouroDistContact), redeemedAmount);
                 }
                 
                 // notify ouro revenue contract
-                ouroRevenueContact.revenueArrival(collateral.token, redeemedAmount);
+                ouroDistContact.revenueArrival(collateral.token, redeemedAmount);
             }
         }
         

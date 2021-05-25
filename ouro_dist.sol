@@ -4,7 +4,7 @@ pragma solidity 0.6.12;
 
 import "./library.sol";
 
-contract OURORevenue is IOURORevenue, Ownable {
+contract OURODist is IOURODist, Ownable {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
     

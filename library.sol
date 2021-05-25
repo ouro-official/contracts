@@ -1057,8 +1057,9 @@ interface IOUROReserve {
     function withdraw(address token, uint256 amountAsset) external;
 }
 
-interface ILPForming {
-    function formLP(address token, uint256 assetAmount) external;
+interface IOURODist {
+    function revenueArrival(address token, uint256 assetAmount) external;
+    function resetAllowance(address token) external;
 }
 
 interface IVenusDistribution {
