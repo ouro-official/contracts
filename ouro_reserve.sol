@@ -36,6 +36,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     address public constant usdtContract = 0x55d398326f99059fF775485246999027B3197955;
     IOUROToken public constant ouroContract = IOUROToken(0x18221Fa6550E6Fd6EfEb9b4aE6313D07Acd824d5);
     IOGSToken public constant ogsContract = IOGSToken(0x0d06E5Cb94CC56DdAd96bF7100F01873406959Ba);
+    ILPForming public constant lpFormingContact = ILPForming(0x32dDC9FE6B986445ED44Df7e2b0a36C528baCC6C);
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
     IPancakeRouter02 public constant router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
@@ -894,7 +895,16 @@ contract OUROReserve is IOUROReserve,Ownable {
                 
                 // 50% - Split to form LP tokens for the platform. 
                 uint256 revenueToFormLP = revenue.sub(revenueToBuyBack);
-                _revenueToFormLP(collateral, revenueToFormLP);
+                
+                // transfer asset to lp forming contract
+                if (collateral.token == WETH) {
+                    payable(address(lpFormingContact)).sendValue(revenueToFormLP);
+                } else {
+                    IERC20(collateral.token).safeTransfer(address(lpFormingContact), revenueToFormLP);
+                }
+                
+                // invoke forming
+                lpFormingContact.formLP(collateral.token, revenueToFormLP);
             }
         }
         
@@ -948,105 +958,6 @@ contract OUROReserve is IOUROReserve,Ownable {
 
         // burn OGS
         ogsContract.burn(ogsAmountOut);
-     }
-     
-     /**
-      * @dev revenue to form LP token
-      */
-     function _revenueToFormLP(CollateralInfo storage collateral, uint256 assetAmount) internal {
-        // buy back OGS
-        address[] memory path;
-        if (collateral.token == usdtContract) {
-            path = new address[](2);
-            path[0] = collateral.token;
-            path[1] = address(ogsContract);
-        } else {
-            path = new address[](3);
-            path[0] = collateral.token;
-            path[1] = usdtContract; // use USDT to bridge
-            path[2] = address(ogsContract);
-        }
-        
-        // half of the asset to buy OGS
-        uint256 assetToBuyOGS = assetAmount
-                                            .mul(50)
-                                            .div(100);
-            
-        uint [] memory amounts = router.getAmountsOut(assetToBuyOGS, path);
-        uint256 ogsAmountOut = amounts[amounts.length - 1];
-        
-        // the path to swap OGS out
-        // path:
-        //  collateral -> USDT -> exact OGS
-        if (collateral.token == WETH) {
-            router.swapExactETHForTokens{value:assetToBuyOGS}(
-                ogsAmountOut, 
-                path, 
-                address(this), 
-                block.timestamp.add(600)
-            );
-            
-        } else {
-            router.swapExactTokensForTokens(
-                assetToBuyOGS, 
-                ogsAmountOut, 
-                path, 
-                address(this), 
-                block.timestamp.add(600)
-            );
-        }
-
-        // the rest revenue will be used to buy USDT
-        if (collateral.token != usdtContract) {
-            path = new address[](2);
-            path[0] = collateral.token;
-            path[1] = usdtContract; 
-            
-            // half of the asset to buy USDT
-            uint256 assetToBuyUSDT = assetAmount
-                                                .mul(50)
-                                                .div(100);
-
-            // get usdt amount out
-            amounts = router.getAmountsOut(assetToBuyUSDT, path);
-            uint256 usdtAmountOut = amounts[amounts.length - 1];
-            
-            // the path to swap USDT out
-            // path:
-            //  collateral -> USDT
-            if (collateral.token == WETH) {
-                router.swapExactETHForTokens{value:assetToBuyUSDT}(
-                    usdtAmountOut, 
-                    path, 
-                    address(this), 
-                    block.timestamp.add(600)
-                );
-                
-            } else {
-                router.swapExactTokensForTokens(
-                    assetToBuyUSDT, 
-                    usdtAmountOut, 
-                    path, 
-                    address(this), 
-                    block.timestamp.add(600)
-                );
-            }
-         }
-         
-        // add liquidity to router
-        // note we always use the maximum possible 
-        uint256 token0Amt = IERC20(ogsContract).balanceOf(address(this));
-        uint256 token1Amt = IERC20(usdtContract).balanceOf(address(this));
-        router.addLiquidity(
-            address(ogsContract),
-            usdtContract,
-            token0Amt,
-            token1Amt,
-            0,
-            0,
-            address(this),
-            block.timestamp.add(600)
-        );
      }
     
     /**
