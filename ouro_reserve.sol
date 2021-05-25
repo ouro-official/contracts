@@ -103,6 +103,8 @@ contract OUROReserve is IOUROReserve,Ownable {
      * ======================================================================================
      */
      
+    receive() external payable {}
+    
     // try rebase for user's deposit and withdraw
     modifier tryRebase() {
         if (block.timestamp > lastRebaseTimestamp + rebasePeriod) {
@@ -333,7 +335,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             _assetsBalance[address(token)] -= amountAsset;
             
             // redeem assets
-            _redeemSupply(collateral, amountAsset);
+            _redeemSupply(collateral.token, collateral.vTokenAddress, amountAsset);
                     
             // sufficient asset satisfied! transfer user's equivalent OURO token to this contract directly
             uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral, amountAsset);
@@ -347,8 +349,8 @@ contract OUROReserve is IOUROReserve,Ownable {
             _assetsBalance[address(token)] = 0;
             
             // insufficient assets, redeem ALL
-            _redeemSupply(collateral, assetBalance);
-            
+             _redeemSupply(collateral.token, collateral.vTokenAddress, assetBalance);
+
             // redeemed assets value in OURO
             uint256 redeemedAssetValue = _lookupAssetValueInOURO(collateral, assetBalance);
             
@@ -419,12 +421,16 @@ contract OUROReserve is IOUROReserve,Ownable {
         // log withdraw
         emit Withdraw(msg.sender, address(token), amountAsset);
     }
-
+    
     /**
      * @dev redeem assets from farm
      */
-    function _redeemSupply(CollateralInfo memory collateral, uint256 amountAsset) internal {
-        IVToken(collateral.vTokenAddress).redeemUnderlying(amountAsset);
+    function _redeemSupply(address token, address vToken, uint256 amountAsset) internal {
+        if (token == WETH) {
+            IVBNB(vToken).redeemUnderlying(amountAsset);
+        } else {
+            IVToken(vToken).redeemUnderlying(amountAsset);
+        }
     }
 
     /**
@@ -685,7 +691,7 @@ contract OUROReserve is IOUROReserve,Ownable {
                                         .div(getAssetPrice(collateral.priceFeed));
 
         // redeem supply from farming
-        _redeemSupply(collateral, collateralToBuyOGS);
+        _redeemSupply(collateral.token, collateral.vTokenAddress, collateralToBuyOGS);
         uint256 redeemedAmount;
         if (collateral.token == WETH) {
             redeemedAmount = address(this).balance;
