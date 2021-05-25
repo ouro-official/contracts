@@ -11,7 +11,7 @@ contract OURORevenue is IOURORevenue, Ownable {
     address public constant usdtContract = 0x55d398326f99059fF775485246999027B3197955;
     IOUROToken public constant ouroContract = IOUROToken(0x18221Fa6550E6Fd6EfEb9b4aE6313D07Acd824d5);
     IOGSToken public constant ogsContract = IOGSToken(0x0d06E5Cb94CC56DdAd96bF7100F01873406959Ba);
-    IPancakeRouter02 public constant router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
+    IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
     address immutable internal WETH = router.WETH();
     uint256 constant internal swapDelay = 600;
     
@@ -21,8 +21,13 @@ contract OURORevenue is IOURORevenue, Ownable {
     uint256 constant internal MAX_UINT256 = uint256(-1);
 
     constructor() public {
+        // approve USDT
         IERC20(usdtContract).safeApprove(address(router), 0); 
         IERC20(usdtContract).safeIncreaseAllowance(address(router), MAX_UINT256);
+        
+        // approve OGS
+        IERC20(ogsContract).safeApprove(address(router), 0); 
+        IERC20(ogsContract).safeIncreaseAllowance(address(router), MAX_UINT256);
     }
      
     /** 

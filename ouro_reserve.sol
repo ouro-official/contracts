@@ -36,10 +36,10 @@ contract OUROReserve is IOUROReserve,Ownable {
     address public constant usdtContract = 0x55d398326f99059fF775485246999027B3197955;
     IOUROToken public constant ouroContract = IOUROToken(0x18221Fa6550E6Fd6EfEb9b4aE6313D07Acd824d5);
     IOGSToken public constant ogsContract = IOGSToken(0x0d06E5Cb94CC56DdAd96bF7100F01873406959Ba);
-    ILPForming public constant lpFormingContact = ILPForming(0x32dDC9FE6B986445ED44Df7e2b0a36C528baCC6C);
+    IOURORevenue public constant ouroRevenueContact = IOURORevenue(0x32dDC9FE6B986445ED44Df7e2b0a36C528baCC6C);
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
-    IPancakeRouter02 public constant router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
+    IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
     
     address immutable internal WETH = router.WETH();
     uint256 constant internal USDT_UNIT = 1e18;
@@ -851,7 +851,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         // swap all XVS to OGS
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
         uint [] memory amounts = router.getAmountsOut(xvsAmount, path);
-        uint256 ogsAmountOut = amounts[2];
+        uint256 ogsAmountOut = amounts[path.length - 1];
         
         // swap OGS out
         router.swapTokensForExactTokens(
@@ -878,7 +878,7 @@ contract OUROReserve is IOUROReserve,Ownable {
                 uint256 revenue = farmBalance.sub(_assetsBalance[collateral.token]);
                 IVToken(collateral.vTokenAddress).redeemUnderlying(revenue);
                 
-                // get actual revenue arrival
+                // get actual revenue redeemed
                 uint256 redeemedAmount;
                 if (collateral.token == WETH) {
                     redeemedAmount = address(this).balance;
@@ -886,78 +886,20 @@ contract OUROReserve is IOUROReserve,Ownable {
                     redeemedAmount = IERC20(collateral.token).balanceOf(address(this));
                 }
                 
-                // 50% - OGS token buy back and burn.
-                uint256 revenueToBuyBack = redeemedAmount
-                                            .mul(50)
-                                            .div(100);
-                                            
-                _revenueToBuyBack(collateral, revenueToBuyBack);
-                
-                // 50% - Split to form LP tokens for the platform. 
-                uint256 revenueToFormLP = revenue.sub(revenueToBuyBack);
-                
-                // transfer asset to lp forming contract
+                // transfer asset to ouro revenue distribution contract
                 if (collateral.token == WETH) {
-                    payable(address(lpFormingContact)).sendValue(revenueToFormLP);
+                    payable(address(ouroRevenueContact)).sendValue(redeemedAmount);
                 } else {
-                    IERC20(collateral.token).safeTransfer(address(lpFormingContact), revenueToFormLP);
+                    IERC20(collateral.token).safeTransfer(address(ouroRevenueContact), redeemedAmount);
                 }
                 
-                // invoke forming
-                lpFormingContact.formLP(collateral.token, revenueToFormLP);
+                // notify ouro revenue contract
+                ouroRevenueContact.revenueArrival(collateral.token, redeemedAmount);
             }
         }
         
         // log 
         emit RevenueDistributed();
-     }
-     
-     /**
-      * @dev revenue to buy back OGS
-      */
-     function _revenueToBuyBack(CollateralInfo storage collateral, uint256 assetAmount) internal {
-        // buy back OGS
-        address[] memory path;
-        if (collateral.token == usdtContract) {
-            path = new address[](2);
-            path[0] = collateral.token;
-            path[1] = address(ogsContract);
-        } else {
-            path = new address[](3);
-            path[0] = collateral.token;
-            path[1] = usdtContract; // use USDT to bridge
-            path[2] = address(ogsContract);
-        }
-            
-        uint [] memory amounts = router.getAmountsOut(assetAmount, path);
-        uint256 ogsAmountOut = amounts[amounts.length - 1];
-        
-        // the path to swap OGS out
-        // path:
-        //  collateral -> USDT -> exact OGS
-        if (collateral.token == WETH) {
-            
-            // swap OGS out with native assets to THIS contract
-            router.swapExactETHForTokens{value:assetAmount}(
-                ogsAmountOut, 
-                path, 
-                address(this), 
-                block.timestamp.add(600)
-            );
-            
-        } else {
-            // swap OGS out to THIS contract
-            router.swapExactTokensForTokens(
-                assetAmount, 
-                ogsAmountOut,
-                path, 
-                address(this), 
-                block.timestamp.add(600)
-            );
-        }
-
-        // burn OGS
-        ogsContract.burn(ogsAmountOut);
      }
     
     /**
