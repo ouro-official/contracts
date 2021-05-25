@@ -36,7 +36,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     address public constant usdtContract = 0x55d398326f99059fF775485246999027B3197955;
     IOUROToken public constant ouroContract = IOUROToken(0x18221Fa6550E6Fd6EfEb9b4aE6313D07Acd824d5);
     IOGSToken public constant ogsContract = IOGSToken(0x0d06E5Cb94CC56DdAd96bF7100F01873406959Ba);
-    IOURORevenue public constant ouroRevenueContact = IOURORevenue(0x32dDC9FE6B986445ED44Df7e2b0a36C528baCC6C);
+    IOURORevenue public ouroRevenueContact = IOURORevenue(0x7341a9e16120a7b6aa3a98e51851f33Fb5F07E07);
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
     IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
@@ -833,7 +833,19 @@ contract OUROReserve is IOUROReserve,Ownable {
      *
      * ======================================================================================
      */
-     function distributeRevenue() external onlyOwner {
+     
+     /**
+      * @dev change ouro revenue distribution contract address
+      * in case of severe bug
+      */
+     function changeOURORevenueDist(address newContract) external onlyOwner {
+         ouroRevenueContact = IOURORevenue(newContract);
+     }
+     
+     /**
+      * @dev a public function accessible to anyone to distribute revenue
+      */
+     function distributeRevenue() external {
         // get venus markets
         address[] memory venusMarkets = new address[](collaterals.length);
         for (uint i=0;i<collaterals.length;i++) {
