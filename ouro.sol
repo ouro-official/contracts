@@ -7,7 +7,7 @@ import "./library.sol";
 /**
  * @notice OURO token contract (ERC20)
  */
-contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
+contract OURToken is ERC20, Ownable, IOUROToken {
     
     using SafeERC20 for IERC20;
     using SafeMath for uint;
@@ -73,7 +73,7 @@ contract OURToken is ERC20, Pausable, Ownable, IOUROToken {
      *
      * See {ERC20-_burn}.
      */
-    function burn(uint256 amount) public override onlyMintableGroup {
+    function burn(uint256 amount) public override {
         _burn(_msgSender(), amount);
     }
 

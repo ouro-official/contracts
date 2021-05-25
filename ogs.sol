@@ -5,9 +5,9 @@ pragma solidity 0.6.12;
 import "./library.sol";
 
 /**
- * @notice OGS token contract (ERC20)
+ * @notice OURO token contract (ERC20)
  */
-contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
+contract OURToken is ERC20, Ownable, IOUROToken {
     
     using SafeERC20 for IERC20;
     using SafeMath for uint;
@@ -27,10 +27,10 @@ contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
     mapping(address => bool) public mintableGroup;
     
     modifier onlyMintableGroup() {
-        require(mintableGroup[msg.sender], "OGS: not in mintable group");
+        require(mintableGroup[msg.sender], "OURO: not in mintable group");
         _;
     }
-    
+
     /**
      * @dev Initialize the contract give all tokens to the deployer
      */
@@ -73,7 +73,7 @@ contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
      *
      * See {ERC20-_burn}.
      */
-    function burn(uint256 amount) public override onlyMintableGroup {
+    function burn(uint256 amount) public override {
         _burn(_msgSender(), amount);
     }
 
@@ -89,7 +89,7 @@ contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
      * `amount`.
      */
     function burnFrom(address account, uint256 amount) public {
-        uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "OGS: burn amount exceeds allowance");
+        uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "OURO: burn amount exceeds allowance");
 
         _approve(account, _msgSender(), decreasedAllowance);
         _burn(account, amount);
@@ -100,8 +100,8 @@ contract OGSToken is ERC20, Pausable, Ownable, IOGSToken {
      * @notice that excessive gas consumption causes transaction revert
      */
     function batchTransfer(address[] memory recipients, uint256[] memory amounts) public {
-        require(recipients.length > 0, "OGS: least one recipient address");
-        require(recipients.length == amounts.length, "OGS: number of recipient addresses does not match the number of tokens");
+        require(recipients.length > 0, "OURO: least one recipient address");
+        require(recipients.length == amounts.length, "OURO: number of recipient addresses does not match the number of tokens");
 
         for(uint256 i = 0; i < recipients.length; ++i) {
             _transfer(_msgSender(), recipients[i], amounts[i]);
