@@ -18,6 +18,10 @@ contract OUROReserveTest is OUROReserve {
         return _lookupAssetValueInOURO(priceFeed, assetUnit, amountAsset);
     }
     
+    function testHandleExceesiveValue(uint256 totalCollateralValue, uint256 totalIssuedOUROValue) public onlyOwner {
+        _handleExceesiveValue(totalCollateralValue, totalIssuedOUROValue);
+    }
+    
     function testExecuteRebalance(bool buyOGS, uint256 valueDeviates) public onlyOwner {
         _executeRebalance(buyOGS, valueDeviates);
     }

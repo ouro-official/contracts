@@ -530,67 +530,74 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // compute values deviates
         if (totalCollateralValue >= totalIssuedOUROValue.mul(100+rebalanceThreshold).div(100)) {
-            // collaterals has excessive value to OURO value, 
-            // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
-            // and conduct a token burn
-            uint256 excessiveValue = totalCollateralValue.sub(totalIssuedOUROValue);
-                                                        
-            // check if price has already reached monthly limit 
-            uint256 priceUpperLimit =               ouroPriceAtMonthStart
-                                                    .mul(100+appreciationLimit)
-                                                    .div(100);
-                                            
-            // conduct an ouro default price change                                
-            if (ouroPrice < priceUpperLimit) {
-                // However, since there is a 3% limit on how much the OURO Default Exchange Price can increase per month, 
-                // only [100,000,000*0.03 = 3,000,000] USDT worth of excess assets can be utilized. This 3,000,000 USDT worth of 
-                // assets will remain in the Reserve Pool, while the remaining [50,000,000-3,000,000=47,000,000] USDT worth 
-                // of assets will be used for OGS buyback and burns. 
-                
-                // (limit - current ouro price) / current ouro price
-                // eg : (1.03 - 1.01) / 1.01 = 0.0198
-                uint256 ouroRisingSpace =           priceUpperLimit.sub(ouroPrice)  // non-negative substraction
-                                                    .mul(MULTIPLIER)
-                                                    .div(ouroPrice);
-
-                // a) maxiumum values required to raise price to limit;
-                uint256 ouroApprecationValueLimit = ouroRisingSpace
-                                                    .mul(totalIssuedOUROValue)
-                                                    .div(MULTIPLIER);
-                
-                // b) maximum excessive value usable (30%)
-                uint256 maximumUsableValue =        excessiveValue
-                                                    .mul(100-OGSbuyBackRatio)
-                                                    .div(100);
-                
-                // use the smaller one from a) & b) to appreciate OURO
-                uint256 valueToAppreciate = ouroApprecationValueLimit < maximumUsableValue?ouroApprecationValueLimit:maximumUsableValue;
-                
-                // IMPORTANT: value appreciation:
-                // ouroPrice = ouroPrice * (totalOUROValue + appreciateValue) / totalOUROValue
-                ouroPrice =                         ouroPrice
-                                                    .mul(totalIssuedOUROValue.add(valueToAppreciate))
-                                                    .div(totalIssuedOUROValue);
-                // log
-                emit Appreciation(ouroPrice);
-                
-                // substract excessive value which has used to appreciate OURO price
-                excessiveValue = excessiveValue.sub(valueToAppreciate);
-            }
-            
-            // after price appreciation, if we still have excessive value
-            // conduct a collateral rebalance
-            if (excessiveValue > 0) {
-                // rebalance the collaterals
-                _executeRebalance(true, excessiveValue);
-            }
-            
+            _handleExceesiveValue(totalCollateralValue, totalIssuedOUROValue);
+          
         } else if (totalCollateralValue <= totalIssuedOUROValue.mul(100-rebalanceThreshold).div(100)) {
             // collaterals has less value to OURO value, mint new OGS to buy assets
             uint256 valueDeviates = totalIssuedOUROValue.sub(totalCollateralValue);
             
             // rebalance the collaterals
             _executeRebalance(false, valueDeviates);
+        }
+    }
+    
+    /**
+     * @dev function to handle excessive value
+     */
+    function _handleExceesiveValue(uint256 totalCollateralValue, uint256 totalIssuedOUROValue) internal {
+        // collaterals has excessive value to OURO value, 
+        // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
+        // and conduct a token burn
+        uint256 excessiveValue = totalCollateralValue.sub(totalIssuedOUROValue);
+                                                    
+        // check if price has already reached monthly limit 
+        uint256 priceUpperLimit =               ouroPriceAtMonthStart
+                                                .mul(100+appreciationLimit)
+                                                .div(100);
+                                        
+        // conduct an ouro default price change                                
+        if (ouroPrice < priceUpperLimit) {
+            // However, since there is a 3% limit on how much the OURO Default Exchange Price can increase per month, 
+            // only [100,000,000*0.03 = 3,000,000] USDT worth of excess assets can be utilized. This 3,000,000 USDT worth of 
+            // assets will remain in the Reserve Pool, while the remaining [50,000,000-3,000,000=47,000,000] USDT worth 
+            // of assets will be used for OGS buyback and burns. 
+            
+            // (limit - current ouro price) / current ouro price
+            // eg : (1.03 - 1.01) / 1.01 = 0.0198
+            uint256 ouroRisingSpace =           priceUpperLimit.sub(ouroPrice)  // non-negative substraction
+                                                .mul(MULTIPLIER)
+                                                .div(ouroPrice);
+
+            // a) maxiumum values required to raise price to limit; (totalIssuedOUROValue * 0.0198)
+            uint256 ouroApprecationValueLimit = ouroRisingSpace
+                                                .mul(totalIssuedOUROValue)
+                                                .div(MULTIPLIER);
+            
+            // b) maximum excessive value usable (30%)
+            uint256 maximumUsableValue =        excessiveValue
+                                                .mul(100-OGSbuyBackRatio)
+                                                .div(100);
+            
+            // use the smaller one from a) & b) to appreciate OURO
+            uint256 valueToAppreciate = ouroApprecationValueLimit < maximumUsableValue?ouroApprecationValueLimit:maximumUsableValue;
+            
+            // IMPORTANT: value appreciation:
+            // ouroPrice = ouroPrice * (totalOUROValue + appreciateValue) / totalOUROValue
+            ouroPrice =                         ouroPrice
+                                                .mul(totalIssuedOUROValue.add(valueToAppreciate))
+                                                .div(totalIssuedOUROValue);
+            // log
+            emit Appreciation(ouroPrice);
+            
+            // substract excessive value which has used to appreciate OURO price
+            excessiveValue = excessiveValue.sub(valueToAppreciate);
+        }
+        
+        // after price appreciation, if we still have excessive value
+        // conduct a collateral rebalance
+        if (excessiveValue > 0) {
+            // rebalance the collaterals
+            _executeRebalance(true, excessiveValue);
         }
     }
     
