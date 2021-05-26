@@ -9,8 +9,8 @@ contract OURODist is IOURODist, Ownable {
     using SafeERC20 for IERC20;
     
     address public constant usdtContract = 0x55d398326f99059fF775485246999027B3197955;
-    IOUROToken public constant ouroContract = IOUROToken(0x18221Fa6550E6Fd6EfEb9b4aE6313D07Acd824d5);
-    IOGSToken public constant ogsContract = IOGSToken(0x0d06E5Cb94CC56DdAd96bF7100F01873406959Ba);
+    IOUROToken public constant ouroContract = IOUROToken(0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628);
+    IOGSToken public constant ogsContract = IOGSToken(0x19F521235CaBAb5347B137f9D85e03D023Ccc76E);
     IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
     address immutable internal WETH = router.WETH();
     uint256 constant internal swapDelay = 600;
