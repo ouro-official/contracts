@@ -26,6 +26,9 @@ contract OURToken is ERC20, Ownable, IOUROToken {
     // @dev mintable group
     mapping(address => bool) public mintableGroup;
     
+    // @dev record mintable accounts
+    address [] public mintableAccounts;
+    
     modifier onlyMintableGroup() {
         require(mintableGroup[msg.sender], "OURO: not in mintable group");
         _;
@@ -48,11 +51,24 @@ contract OURToken is ERC20, Ownable, IOUROToken {
      */
     function setMintable(address account, bool allow) public override onlyOwner {
         mintableGroup[account] = allow;
+        mintableAccounts.push(account);
+        
         if (allow) {
             emit Mintable(account);
         }  else {
             emit Unmintable(account);
         }
+    }
+    
+    /**
+     * @dev remove all mintable account
+     */
+    function revokeAllMintable() public onlyOwner {
+        uint n = mintableAccounts.length;
+        for (uint i=0;i<n;i++) {
+            delete mintableGroup[mintableAccounts[i]];
+        }
+        delete mintableAccounts;
     }
     
     /** @dev Creates `amount` tokens and assigns them to `account`, increasing
