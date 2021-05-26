@@ -94,22 +94,6 @@ contract OUROReserve is IOUROReserve,Ownable {
             );
         }
     }
-        
-    /**
-     * @dev reset price limit period
-     */
-    function setPriceLimitResetPeriod(uint period) external onlyOwner {
-        require(period > 0, "period 0");
-        ouroPriceResetPeriod = period;
-    }
-    
-    /**
-     * @dev set ouro issuance period
-     */
-    function setOuroIssuePeriod(uint period) external onlyOwner {
-        require(period > 0, "period 0");
-        ouroIssuePeriod = period;
-    }
     
      /**
      * ======================================================================================
@@ -503,14 +487,6 @@ contract OUROReserve is IOUROReserve,Ownable {
 
     // multiplier
     uint internal constant MULTIPLIER = 1e12;
-
-    /**
-     * @dev set rebase period
-     */
-    function setRebasePeriod(uint period) external onlyOwner {
-        require(period > 0, "period 0");
-        rebasePeriod = period;
-    }
     
     /**
      * @dev rebase entry
@@ -709,10 +685,6 @@ contract OUROReserve is IOUROReserve,Ownable {
         return totalCollateralValue;
     }
     
-    function testbuybackOGS(address token ,address vTokenAddress, uint256 assetUnit, AggregatorV3Interface priceFeed, uint256 slotValue) public onlyOwner {
-        _buybackOGS(token, vTokenAddress, assetUnit, priceFeed, slotValue);
-    }
-
     /**
      * @dev buy back OGS with collateral
      * slotValue is priced in USDT 
@@ -771,10 +743,6 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // accounting
         _assetsBalance[token] = _assetsBalance[token].sub(redeemedAmount);
-    }
-    
-    function testbuybackCollateral(address token ,address vTokenAddress, uint256 assetUnit, AggregatorV3Interface priceFeed, uint256 slotValue) public onlyOwner {
-        _buybackCollateral(token, vTokenAddress, assetUnit, priceFeed, slotValue);
     }
     
     /**
