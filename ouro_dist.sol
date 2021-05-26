@@ -75,18 +75,16 @@ contract OURODist is IOURODist, Ownable {
            path[1] = usdtContract; // use USDT to bridge
            path[2] = address(ogsContract);
        }
-           
-       uint [] memory amounts = router.getAmountsOut(assetAmount, path);
-       uint256 ogsAmountOut = amounts[amounts.length - 1];
-       
+
+       uint [] memory amounts;
        // the path to swap OGS out
        // path:
        //  collateral -> USDT -> exact OGS
        if (token == WETH) {
            
            // swap OGS out with native assets to THIS contract
-           router.swapExactETHForTokens{value:assetAmount}(
-               ogsAmountOut, 
+           amounts = router.swapExactETHForTokens{value:assetAmount}(
+               0, 
                path, 
                address(this), 
                block.timestamp.add(600)
@@ -94,17 +92,17 @@ contract OURODist is IOURODist, Ownable {
            
        } else {
            // swap OGS out to THIS contract
-           router.swapExactTokensForTokens(
+           amounts = router.swapExactTokensForTokens(
                assetAmount, 
-               ogsAmountOut,
+               0,
                path, 
                address(this), 
                block.timestamp.add(600)
            );
        }
 
-       // burn OGS
-       ogsContract.burn(ogsAmountOut);
+       // burn OGS the actual swapped out
+       ogsContract.burn(amounts[amounts.length - 1]);
     }
 
      /**
@@ -127,13 +125,10 @@ contract OURODist is IOURODist, Ownable {
        // half of the asset to buy OGS
        uint256 assetToBuyOGS = assetAmount.div(2);
            
-       uint [] memory amounts = router.getAmountsOut(assetToBuyOGS, path);
-       uint256 ogsAmountOut = amounts[amounts.length - 1];
-       
        // the path to swap OGS out
        if (token == WETH) {
            router.swapExactETHForTokens{value:assetToBuyOGS}(
-               ogsAmountOut, 
+               0, 
                path, 
                address(this), 
                block.timestamp.add(swapDelay)
@@ -142,7 +137,7 @@ contract OURODist is IOURODist, Ownable {
        } else {
            router.swapExactTokensForTokens(
                assetToBuyOGS, 
-               ogsAmountOut, 
+               0, 
                path, 
                address(this), 
                block.timestamp.add(swapDelay)
@@ -158,16 +153,12 @@ contract OURODist is IOURODist, Ownable {
            // half of the asset to buy USDT
            uint256 assetToBuyUSDT = assetAmount.div(2);
            
-           // get usdt amount out
-           amounts = router.getAmountsOut(assetToBuyUSDT, path);
-           uint256 usdtAmountOut = amounts[amounts.length - 1];
-           
            // the path to swap USDT out
            // path:
            //  collateral -> USDT
            if (token == WETH) {
                router.swapExactETHForTokens{value:assetToBuyUSDT}(
-                   usdtAmountOut, 
+                   0, 
                    path, 
                    address(this), 
                    block.timestamp.add(swapDelay)
@@ -176,7 +167,7 @@ contract OURODist is IOURODist, Ownable {
            } else {
                router.swapExactTokensForTokens(
                    assetToBuyUSDT, 
-                   usdtAmountOut, 
+                   0, 
                    path, 
                    address(this), 
                    block.timestamp.add(swapDelay)

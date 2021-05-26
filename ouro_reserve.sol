@@ -733,8 +733,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // the path to find how many OGS can be swapped
         // path:
-        //  collateral -> USDT -> (??? OGS)
-
+        //  exact collateral -> USDT -> ??? OGS
         address[] memory path;
         if (token == usdtContract) {
             path = new address[](2);
@@ -747,37 +746,28 @@ contract OUROReserve is IOUROReserve,Ownable {
             path[2] = address(ogsContract);
         }
         
-        // calc amount OGS that could be swapped out with given collateral
-        uint [] memory amounts = router.getAmountsOut(redeemedAmount, path);
-        uint256 ogsAmountOut = amounts[amounts.length - 1];
-        
-        // the path to swap OGS out
-        // path:
-        //  collateral -> USDT -> exact OGS
+        // swap OGS out
+        uint [] memory amounts;
         if (token == WETH) {
-            
-            // swap OGS out with native assets to THIS contract
-            router.swapExactETHForTokens{value:redeemedAmount}(
-                ogsAmountOut, 
+            amounts = router.swapExactETHForTokens{value:redeemedAmount}(
+                0, 
                 path, 
                 address(this), 
                 block.timestamp.add(600)
             );
             
         } else {
-            
-            // swap OGS out to THIS contract
-            router.swapExactTokensForTokens(
-                redeemedAmount, 
-                ogsAmountOut, 
+            amounts =router.swapExactTokensForTokens(
+                redeemedAmount,
+                0, 
                 path, 
                 address(this), 
                 block.timestamp.add(600)
             );
         }
-
+        
         // burn OGS
-        ogsContract.burn(ogsAmountOut);
+        ogsContract.burn(amounts[amounts.length - 1]);
         
         // accounting
         _assetsBalance[token] = _assetsBalance[token].sub(redeemedAmount);
@@ -823,32 +813,30 @@ contract OUROReserve is IOUROReserve,Ownable {
         // path:
         //  (exact OGS) -> USDT -> collateral
         if (token == WETH) {
-            
-            // swap out native assets ETH, BNB with OGS to OURO contract
-            router.swapTokensForExactETH(
-                ogsRequired, 
-                collateralToBuyBack, 
+            amounts = router.swapExactTokensForETH(
+                ogsRequired,
+                0,
                 path, 
                 address(this), 
                 block.timestamp.add(600)
             );
-
         } else {
-            // swap out tokens out to OURO contract
-            router.swapTokensForExactTokens(
-                ogsRequired, 
-                collateralToBuyBack, 
+            amounts = router.swapExactTokensForTokens(
+                ogsRequired,
+                0, 
                 path, 
                 address(this), 
                 block.timestamp.add(600)
             );
         }
         
+        uint256 swappedOut = amounts[amounts.length - 1];
+        
         // as we brought back the collateral, farm the asset
-        _supply(token, vTokenAddress, collateralToBuyBack);
+        _supply(token, vTokenAddress, swappedOut);
         
         // accounting
-        _assetsBalance[token] = _assetsBalance[token].add(collateralToBuyBack);
+        _assetsBalance[token] = _assetsBalance[token].add(swappedOut);
     }
     
     /**
@@ -887,17 +875,16 @@ contract OUROReserve is IOUROReserve,Ownable {
 
         // swap all XVS to OGS
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
-        uint [] memory amounts = router.getAmountsOut(xvsAmount, path);
-        uint256 ogsAmountOut = amounts[path.length - 1];
-        
+
         // swap OGS out
-        router.swapTokensForExactTokens(
-            ogsAmountOut, 
-            xvsAmount, 
+        uint [] memory amounts = router.swapExactTokensForTokens(
+            xvsAmount,
+            0, 
             path, 
             address(this), 
             block.timestamp.add(600)
         );
+        uint256 ogsAmountOut = amounts[amounts.length - 1];
 
         // burn OGS
         ogsContract.burn(ogsAmountOut);
