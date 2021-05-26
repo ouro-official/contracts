@@ -118,6 +118,8 @@ contract OUROReserve is IOUROReserve,Ownable {
         IERC20(xvsAddress).safeApprove(address(router), MAX_UINT256);
         // approve ogs to router
         IERC20(ogsContract).safeApprove(address(router), MAX_UINT256);
+        // approve ouro to router
+        IERC20(ouroContract).safeApprove(address(router), MAX_UINT256);
     }
     
     /**
@@ -220,6 +222,10 @@ contract OUROReserve is IOUROReserve,Ownable {
         // re-approve ogs to router
         IERC20(ogsContract).safeApprove(address(router), 0);
         IERC20(ogsContract).safeIncreaseAllowance(address(router), MAX_UINT256);
+        
+        // re-approve ouro to router
+        IERC20(ouroContract).safeApprove(address(router), 0);
+        IERC20(ouroContract).safeIncreaseAllowance(address(router), MAX_UINT256);
         
         // log
         emit ResetAllowance();
@@ -328,6 +334,7 @@ contract OUROReserve is IOUROReserve,Ownable {
                                                     
         // check if we have sufficient assets to return to user
         uint256 assetBalance = _assetsBalance[address(token)];
+        uint256 assetsToSendBack;
         
         // perform OURO token burn
         if (assetBalance >= amountAsset) {
@@ -343,13 +350,16 @@ contract OUROReserve is IOUROReserve,Ownable {
             
             // and burn OURO.
             IOUROToken(ouroContract).burn(assetValueInOuro);
+            
+            // set assetsToSendBack
+            assetsToSendBack = amountAsset;
 
         } else {
             // drain asset balance
             _assetsBalance[address(token)] = 0;
             
             // insufficient assets, redeem ALL
-             _redeemSupply(collateral.token, collateral.vTokenAddress, assetBalance);
+            _redeemSupply(collateral.token, collateral.vTokenAddress, assetBalance);
 
             // redeemed assets value in OURO
             uint256 redeemedAssetValue = _lookupAssetValueInOURO(collateral, assetBalance);
@@ -361,9 +371,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             // find how many extra OUROs required to swap the extra assets out
             // path:
             //  (??? ouro) -> USDT -> collateral
-            
             address[] memory path;
-            
             if (token == usdtContract) {
                 path = new address[](2);
                 path[0] = address(ouroContract);
@@ -387,18 +395,18 @@ contract OUROReserve is IOUROReserve,Ownable {
             // path:
             //  ouro-> (USDT) -> collateral
             if (token == WETH) {
-                router.swapTokensForExactETH(
-                    extraAssets, 
+                amounts = router.swapExactTokensForETH (
                     extraOuroRequired, 
+                    0, 
                     path, 
                     address(this), 
                     block.timestamp.add(600)
                 );
             } else {
                 // swap out tokens out to OURO contract
-                router.swapTokensForExactTokens(
-                    extraAssets, 
+                amounts = router.swapExactTokensForTokens(
                     extraOuroRequired, 
+                    0, 
                     path, 
                     address(this), 
                     block.timestamp.add(600)
@@ -407,19 +415,21 @@ contract OUROReserve is IOUROReserve,Ownable {
             
             // burn OURO
             ouroContract.burn(totalOuroToBurn);
+            
+            // set assetsToSendBack
+            // as we cannot guarantee the precision of amount asset swapped out
+            assetsToSendBack = amounts[amounts.length-1].add(assetBalance);
         }
         
         // finally we transfer the assets based on asset type back to user
         if (token == WETH) {
-            uint256 value = address(this).balance < amountAsset? address(this).balance:amountAsset;
-            msg.sender.sendValue(value);
+            msg.sender.sendValue(assetsToSendBack);
         } else {
-            uint256 value = IERC20(token).balanceOf(address(this)) < amountAsset? IERC20(token).balanceOf(address(this)):amountAsset;
-            IERC20(token).safeTransfer(msg.sender, value);
+            IERC20(token).safeTransfer(msg.sender, assetsToSendBack);
         }
         
         // log withdraw
-        emit Withdraw(msg.sender, address(token), amountAsset);
+        emit Withdraw(msg.sender, address(token), assetsToSendBack);
     }
     
     /**
