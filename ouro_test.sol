@@ -47,4 +47,12 @@ contract OUROReserveTest is OUROReserve {
         require(period > 0, "period 0");
         ouroIssuePeriod = period;
     }
+    
+    function testDistributeXVS() external onlyOwner {
+        _distributeXVS();
+    }
+    
+    function testDistributeAssetRevenue() external onlyOwner {
+        _distributeAssetRevenue();
+    }
 }
