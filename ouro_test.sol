@@ -6,6 +6,14 @@ import "./ouro_reserve.sol";
 import "./ouro_dist.sol";
 
 contract OUROReserveTest is OUROReserve {
+    function testFindCollateral(address token) internal view onlyOwner returns (CollateralInfo memory, bool) {
+        return _findCollateral(token);
+    }
+    
+    function testGetTotalCollateralValue() public view onlyOwner returns(uint256)  {
+        return _getTotalCollateralValue();
+    }
+    
     function testbuybackOGS(address token ,address vTokenAddress, uint256 assetUnit, AggregatorV3Interface priceFeed, uint256 slotValue) public onlyOwner {
         _buybackOGS(token, vTokenAddress, assetUnit, priceFeed, slotValue);
     }

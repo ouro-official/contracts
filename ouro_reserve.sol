@@ -827,6 +827,14 @@ contract OUROReserve is IOUROReserve,Ownable {
       * @dev a public function accessible to anyone to distribute revenue
       */
      function distributeRevenue() external {
+         _distributeXVS();
+         _distributeAssetRevenue();
+                 
+        // log 
+        emit RevenueDistributed();
+     }
+     
+     function _distributeXVS() internal {
         // get venus markets
         address[] memory venusMarkets = new address[](collaterals.length);
         for (uint i=0;i<collaterals.length;i++) {
@@ -856,7 +864,9 @@ contract OUROReserve is IOUROReserve,Ownable {
 
         // burn OGS
         ogsContract.burn(ogsAmountOut);
-        
+     }
+     
+     function _distributeAssetRevenue() internal {   
         // distribute assets revenue 
         uint n = collaterals.length;
         for (uint i=0;i<n;i++) {
@@ -889,9 +899,6 @@ contract OUROReserve is IOUROReserve,Ownable {
                 ouroDistContact.revenueArrival(collateral.token, redeemedAmount);
             }
         }
-        
-        // log 
-        emit RevenueDistributed();
      }
     
     /**
