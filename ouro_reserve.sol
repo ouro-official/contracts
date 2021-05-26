@@ -560,7 +560,8 @@ contract OUROReserve is IOUROReserve,Ownable {
                 
                 // b) maximum excessive value usable (30%)
                 uint256 maximumUsableValue =        excessiveValue
-                                                    .mul(100-OGSbuyBackRatio);
+                                                    .mul(100-OGSbuyBackRatio)
+                                                    .div(100);
                 
                 // use the smaller one from a) & b) to appreciate OURO
                 uint256 valueToAppreciate = ouroApprecationValueLimit < maximumUsableValue?ouroApprecationValueLimit:maximumUsableValue;
