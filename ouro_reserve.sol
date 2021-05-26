@@ -27,12 +27,12 @@ contract OUROReserve is IOUROReserve,Ownable {
     uint256 public ouroPrice = 1e18; // current ouro price, initially 1 OURO = 1 USDT
     uint256 public ouroPriceAtMonthStart = 1e18; // ouro price at the begining of a month, initially set to 1 USDT
     uint256 public constant OURO_PRICE_UNIT = 1e18; // 1 OURO = 1e18
-    
-    uint256 internal constant MONTH = 30 days;
+    uint public ouroLastPriceUpdate = block.timestamp; 
+    uint public ouroPriceResetPeriod = 30 days; // price limit reset mothly
+    uint public ouroIssuePeriod = 30 days; // ouro issuance limit
     uint public appreciationLimit = 3; // 3 perce nt monthly OURO price appreciation limit
-    uint public ouroLastPriceUpdate = block.timestamp;
-    uint public constant ouroPriceUpdatePeriod = MONTH;
 
+    // contracts
     address public constant usdtContract = 0x55d398326f99059fF775485246999027B3197955;
     IOUROToken public constant ouroContract = IOUROToken(0x18221Fa6550E6Fd6EfEb9b4aE6313D07Acd824d5);
     IOGSToken public constant ogsContract = IOGSToken(0x0d06E5Cb94CC56DdAd96bF7100F01873406959Ba);
@@ -93,6 +93,22 @@ contract OUROReserve is IOUROReserve,Ownable {
                 collateral.priceFeed
             );
         }
+    }
+        
+    /**
+     * @dev reset price limit period
+     */
+    function setPriceLimitResetPeriod(uint period) external onlyOwner {
+        require(period > 0, "period 0");
+        ouroPriceResetPeriod = period;
+    }
+    
+    /**
+     * @dev set ouro issuance period
+     */
+    function setOuroIssuePeriod(uint period) external onlyOwner {
+        require(period > 0, "period 0");
+        ouroIssuePeriod = period;
     }
     
      /**
@@ -276,12 +292,12 @@ contract OUROReserve is IOUROReserve,Ownable {
         // get equivalent OURO value
         uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral, amountAsset);
         
-        // check monthly OURO issuance limit
-        uint monthN = block.timestamp.sub(issueFrom).div(MONTH);
-        if (monthN < issueSchedule.length) { // still in control
+        // check periodical OURO issuance limit
+        uint periodN = block.timestamp.sub(issueFrom).div(ouroIssuePeriod);
+        if (periodN < issueSchedule.length) { // still in control
             require(assetValueInOuro + IERC20(ouroContract).totalSupply() 
                         <=
-                    uint256(issueSchedule[monthN]).mul(issueUnit),
+                    uint256(issueSchedule[periodN]).mul(issueUnit),
                     "limited"
             );
         }
@@ -508,10 +524,10 @@ contract OUROReserve is IOUROReserve,Ownable {
         _rebase();
                 
         // update rebase time
-        lastRebaseTimestamp += rebasePeriod;
+        lastRebaseTimestamp = block.timestamp;
         
         // book keeping after rebase
-        if (block.timestamp > ouroLastPriceUpdate + ouroPriceUpdatePeriod) {
+        if (block.timestamp > ouroLastPriceUpdate + ouroPriceResetPeriod) {
             // record price at month begins
             ouroPriceAtMonthStart = ouroPrice;
             ouroLastPriceUpdate = block.timestamp;
