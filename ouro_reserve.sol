@@ -533,16 +533,14 @@ contract OUROReserve is IOUROReserve,Ownable {
             // collaterals has excessive value to OURO value, 
             // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
             // and conduct a token burn
-            uint256 excessiveValue =                totalCollateralValue
-                                                    .sub(totalIssuedOUROValue)
-                                                    .div(100);
+            uint256 excessiveValue = totalCollateralValue.sub(totalIssuedOUROValue);
                                                         
             // check if price has already reached monthly limit 
             uint256 priceUpperLimit =               ouroPriceAtMonthStart
                                                     .mul(100+appreciationLimit)
                                                     .div(100);
                                             
-            // conduct a ouro default price change                                
+            // conduct an ouro default price change                                
             if (ouroPrice < priceUpperLimit) {
                 // However, since there is a 3% limit on how much the OURO Default Exchange Price can increase per month, 
                 // only [100,000,000*0.03 = 3,000,000] USDT worth of excess assets can be utilized. This 3,000,000 USDT worth of 
@@ -567,11 +565,13 @@ contract OUROReserve is IOUROReserve,Ownable {
                 // use the smaller one from a) & b) to appreciate OURO
                 uint256 valueToAppreciate = ouroApprecationValueLimit < maximumUsableValue?ouroApprecationValueLimit:maximumUsableValue;
                 
-                // value appreciation:
+                // IMPORTANT: value appreciation:
                 // ouroPrice = ouroPrice * (totalOUROValue + appreciateValue) / totalOUROValue
                 ouroPrice =                         ouroPrice
                                                     .mul(totalIssuedOUROValue.add(valueToAppreciate))
                                                     .div(totalIssuedOUROValue);
+                // log
+                emit Appreciation(ouroPrice);
                 
                 // substract excessive value which has used to appreciate OURO price
                 excessiveValue = excessiveValue.sub(valueToAppreciate);
@@ -914,6 +914,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      */
      event Deposit(address account, uint256 ouroAmount);
      event Withdraw(address account, address token, uint256 assetAmount);
+     event Appreciation(uint256 price);
      event Rebased(address account);
      event NewCollateral(address token);
      event RemoveCollateral(address token);

@@ -14,6 +14,14 @@ contract OUROReserveTest is OUROReserve {
         return _getTotalCollateralValue();
     }
     
+    function testLookupAssetValueInOURO(AggregatorV3Interface priceFeed, uint256 assetUnit, uint256 amountAsset) public view onlyOwner returns(uint256) {
+        return _lookupAssetValueInOURO(priceFeed, assetUnit, amountAsset);
+    }
+    
+    function testExecuteRebalance(bool buyOGS, uint256 valueDeviates) public onlyOwner {
+        _executeRebalance(buyOGS, valueDeviates);
+    }
+    
     function testbuybackOGS(address token ,address vTokenAddress, uint256 assetUnit, AggregatorV3Interface priceFeed, uint256 slotValue) public onlyOwner {
         _buybackOGS(token, vTokenAddress, assetUnit, priceFeed, slotValue);
     }
