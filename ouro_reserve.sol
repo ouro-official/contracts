@@ -280,7 +280,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         require(amountAsset > 0, "0 deposit");
 
         // get equivalent OURO value
-        uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral, amountAsset);
+        uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amountAsset);
         
         // check periodical OURO issuance limit
         uint periodN = block.timestamp.sub(issueFrom).div(ouroIssuePeriod);
@@ -334,8 +334,7 @@ contract OUROReserve is IOUROReserve,Ownable {
                                                     
         // check if we have sufficient assets to return to user
         uint256 assetBalance = _assetsBalance[address(token)];
-        uint256 assetsToSendBack;
-        
+
         // perform OURO token burn
         if (assetBalance >= amountAsset) {
             // substract asset balance
@@ -345,15 +344,12 @@ contract OUROReserve is IOUROReserve,Ownable {
             _redeemSupply(collateral.token, collateral.vTokenAddress, amountAsset);
                     
             // sufficient asset satisfied! transfer user's equivalent OURO token to this contract directly
-            uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral, amountAsset);
+            uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amountAsset);
             IERC20(ouroContract).safeTransferFrom(msg.sender, address(this), assetValueInOuro);
             
             // and burn OURO.
             IOUROToken(ouroContract).burn(assetValueInOuro);
             
-            // set assetsToSendBack
-            assetsToSendBack = amountAsset;
-
         } else {
             // drain asset balance
             _assetsBalance[address(token)] = 0;
@@ -362,7 +358,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             _redeemSupply(collateral.token, collateral.vTokenAddress, assetBalance);
 
             // redeemed assets value in OURO
-            uint256 redeemedAssetValue = _lookupAssetValueInOURO(collateral, assetBalance);
+            uint256 redeemedAssetValueInOURO = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, assetBalance);
             
             // as we don't have enough assets to return to user
             // we buy extra assets from swaps with user's OURO
@@ -388,10 +384,13 @@ contract OUROReserve is IOUROReserve,Ownable {
             
             // @notice user needs sufficient OURO to swap assets out
             // transfer total OURO to this contract, if user has insufficient OURO, the transaction will revert!
-            uint256 totalOuroToBurn = extraOuroRequired.add(redeemedAssetValue);
+            uint256 totalOuroToBurn = extraOuroRequired.add(redeemedAssetValueInOURO);
             ouroContract.safeTransferFrom(msg.sender, address(this), totalOuroToBurn);
-    
-            // buy assets back to this contract
+                 
+            // a) OURO to burn (don't burn the swapped part)
+            ouroContract.burn(redeemedAssetValueInOURO);
+            
+            // b) OURO to buy back assets
             // path:
             //  ouro-> (USDT) -> collateral
             if (token == WETH) {
@@ -412,24 +411,19 @@ contract OUROReserve is IOUROReserve,Ownable {
                     block.timestamp.add(600)
                 );
             }
-            
-            // burn OURO
-            ouroContract.burn(totalOuroToBurn);
-            
-            // set assetsToSendBack
-            // as we cannot guarantee the precision of amount asset swapped out
-            assetsToSendBack = amounts[amounts.length-1].add(assetBalance);
         }
         
         // finally we transfer the assets based on asset type back to user
         if (token == WETH) {
-            msg.sender.sendValue(assetsToSendBack);
+            uint256 value = address(this).balance < amountAsset? address(this).balance:amountAsset;
+            msg.sender.sendValue(value);
         } else {
-            IERC20(token).safeTransfer(msg.sender, assetsToSendBack);
+            uint256 value = IERC20(token).balanceOf(address(this)) < amountAsset? IERC20(token).balanceOf(address(this)):amountAsset;
+            IERC20(token).safeTransfer(msg.sender, value);
         }
         
         // log withdraw
-        emit Withdraw(msg.sender, address(token), assetsToSendBack);
+        emit Withdraw(msg.sender, address(token), amountAsset);
     }
     
     /**
@@ -458,14 +452,14 @@ contract OUROReserve is IOUROReserve,Ownable {
     /**
      * @dev find the given asset value priced in OURO
      */
-    function _lookupAssetValueInOURO(CollateralInfo memory collateral, uint256 amountAsset) internal view returns (uint256 amountOURO) {
+    function _lookupAssetValueInOURO(AggregatorV3Interface priceFeed, uint256 assetUnit, uint256 amountAsset) internal view returns (uint256 amountOURO) {
         // get lastest asset value in USDT
-        uint256 assetUnitPrice = getAssetPrice(collateral.priceFeed);
+        uint256 assetUnitPrice = getAssetPrice(priceFeed);
         
         // compute total USDT value
         uint256 assetValueInUSDT = amountAsset
                                                     .mul(assetUnitPrice)
-                                                    .div(collateral.assetUnit);
+                                                    .div(assetUnit);
                                                     
         // convert asset USDT value to OURO value
         uint256 assetValueInOuro = assetValueInUSDT.mul(OURO_PRICE_UNIT)
