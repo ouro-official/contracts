@@ -79,7 +79,7 @@ contract OURODist is IOURODist, Ownable {
        uint [] memory amounts;
        // the path to swap OGS out
        // path:
-       //  collateral -> USDT -> exact OGS
+       // exact collateral -> USDT -> OGS
        if (token == WETH) {
            
            // swap OGS out with native assets to THIS contract
@@ -151,7 +151,7 @@ contract OURODist is IOURODist, Ownable {
            path[1] = usdtContract; 
            
            // half of the asset to buy USDT
-           uint256 assetToBuyUSDT = assetAmount.div(2);
+           uint256 assetToBuyUSDT = assetAmount.sub(assetToBuyOGS);
            
            // the path to swap USDT out
            // path:
