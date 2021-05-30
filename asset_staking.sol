@@ -22,14 +22,13 @@ contract AssetStaking is Ownable {
     address public OGSContract; // the OGS token contract
     address public immutable vTokenAddress; // venus vToken Address
     
-    address public constant wbnbAddress = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant ouroReserveAddress = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
-    address public usdtContract = 0x55d398326f99059fF775485246999027B3197955;
+    address public constant usdtContract = 0x55d398326f99059fF775485246999027B3197955;
 
     // pancake router
-    IPancakeRouter02 public router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+    IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
     uint256 constant internal MAX_UINT256 = uint256(-1);
     
     address[] venusMarkets; // venus market, set at constructor
