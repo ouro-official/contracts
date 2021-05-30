@@ -714,19 +714,21 @@ contract OUROReserve is IOUROReserve,Ownable {
      * 2. conduct a ogs burn(90%)
      */
     function _buybackOGS(address token ,address vTokenAddress, uint256 assetUnit, AggregatorV3Interface priceFeed, uint256 slotValue) internal {
-        uint256 collateralToBuyOGS = slotValue
+        uint256 collateralToRedeem = slotValue
                                         .mul(assetUnit)
                                         .div(getAssetPrice(priceFeed));
-
+        // accounting
+        _assetsBalance[token] = _assetsBalance[token].sub(collateralToRedeem);
+        
         // redeem supply from farming
-        _redeemSupply(token, vTokenAddress, collateralToBuyOGS);
+        _redeemSupply(token, vTokenAddress, collateralToRedeem);
         uint256 redeemedAmount;
         if (token == WETH) {
             redeemedAmount = address(this).balance;
         } else {
             redeemedAmount = IERC20(token).balanceOf(address(this));
         }
-         
+
         // split assets allocation
         uint256 assetToInsuranceFund = redeemedAmount.mul(10).div(100);
         uint256 assetToBuyBackOGS = redeemedAmount.sub(assetToInsuranceFund);
@@ -802,9 +804,6 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // burn OGS
         ogsContract.burn(amounts[amounts.length - 1]);
-        
-        // accounting
-        _assetsBalance[token] = _assetsBalance[token].sub(redeemedAmount);
     }
     
     /**
