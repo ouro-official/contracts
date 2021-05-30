@@ -12,15 +12,14 @@ import "library.sol";
  */
 contract AssetStaking is Ownable {
     using SafeERC20 for IERC20;
-    using SafeERC20 for IOGSToken;
     using SafeMath for uint;
     
     uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
     
-    IERC20 public AssetContract; // the asset to stake
+    address public AssetContract; // the asset to stake
     
-    IOUROToken public OUROContract; // the OURO token contract
-    IOGSToken public OGSContract; // the OGS token contract
+    address public OUROContract; // the OURO token contract
+    address public OGSContract; // the OGS token contract
     address public immutable vTokenAddress; // venus vToken Address
     
     address public constant wbnbAddress = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
@@ -35,13 +34,12 @@ contract AssetStaking is Ownable {
     
     address[] venusMarkets; // venus market, set at constructor
     mapping (address => uint256) private _balances; // tracking staker's value
-    mapping (address => uint256) internal _rewardBalance; // tracking staker's claimable reward tokens
     uint256 private _totalStaked; // track total staked value
     
     /// @dev initial block reward set to 0
     uint256 public BlockReward = 0;
     
-    /// @dev shares user can claim
+    /// @dev shares of user
     struct Shares{
         uint256 ouroShare;
         uint256 ogsShare;
@@ -56,11 +54,18 @@ contract AssetStaking is Ownable {
     // @dev last rewarded block
     uint256 private _lastRewardBlock = block.number;
     
-    constructor(IOGSToken ogsContract, IERC20 assetContract, address vTokenAddress_) public {
+    // 2 types of reward
+    // @dev ogs reward balance, settle but not claimed
+    mapping (address => uint256) internal _ogsRewardBalance;
+    // @dev ouro reward balance, settle but not claimed
+    mapping (address => uint256) internal _ouroRewardBalance;
+    
+    constructor(address ogsContract, address assetContract, address vTokenAddress_) public {
         if (address(assetContract) == router.WETH()) {
             isNativeToken = true;
         }
         
+        // set addresses
         AssetContract = assetContract; 
         OGSContract = ogsContract;
         vTokenAddress = vTokenAddress_;
@@ -69,8 +74,8 @@ contract AssetStaking is Ownable {
         IVenusDistribution(unitroller).enterMarkets(venusMarkets);
 
         // approve OGS to router
-        IERC20(ogsContract).safeApprove(address(router), 0); 
-        IERC20(ogsContract).safeIncreaseAllowance(address(router), MAX_UINT256);
+        IERC20(OGSContract).safeApprove(address(router), 0); 
+        IERC20(OGSContract).safeIncreaseAllowance(address(router), MAX_UINT256);
         
         // approve asset to OURO reserve
         IERC20(AssetContract).safeApprove(ouroReserveAddress, 0); 
@@ -78,11 +83,16 @@ contract AssetStaking is Ownable {
     }
     
     /** 
-     * @dev reset allowance for special token
+     * @dev reset allowance
      */
-    function resetAllowance(address token) external onlyOwner {
-       IERC20(token).safeApprove(address(router), 0); 
-       IERC20(token).safeIncreaseAllowance(address(router), MAX_UINT256);
+    function resetAllowances() external onlyOwner {
+        // re-approve OGS to router
+        IERC20(OGSContract).safeApprove(address(router), 0); 
+        IERC20(OGSContract).safeIncreaseAllowance(address(router), MAX_UINT256);
+        
+        // re-approve asset to OURO reserve
+        IERC20(AssetContract).safeApprove(ouroReserveAddress, 0); 
+        IERC20(AssetContract).safeIncreaseAllowance(ouroReserveAddress, MAX_UINT256);
     }
     
     /**
@@ -93,7 +103,7 @@ contract AssetStaking is Ownable {
         settleStaker(msg.sender);
         
         // transfer asset from AssetContract
-        AssetContract.safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(AssetContract).safeTransferFrom(msg.sender, address(this), amount);
         _balances[msg.sender] += amount;
         _totalStaked += amount;
         
@@ -102,20 +112,35 @@ contract AssetStaking is Ownable {
     }
     
     /**
-     * @dev claim rewards only
+     * @dev claim OGS rewards only
      */
-    function claimRewards() external {
+    function claimOGSRewards() external {
         // settle previous rewards
         settleStaker(msg.sender);
         
         // reward balance modification
-        uint amountReward = _rewardBalance[msg.sender];
-        delete _rewardBalance[msg.sender]; // zero reward balance
+        uint amountReward = _ogsRewardBalance[msg.sender];
+        delete _ogsRewardBalance[msg.sender]; // zero reward balance
 
-        // mint reward to sender
-        OGSContract.mint(msg.sender, amountReward);
+        // mint OGS reward to sender
+        IOGSToken(OGSContract).mint(msg.sender, amountReward);
     }
     
+    /**
+     * @dev claim OURO rewards only
+     */
+    function claimOURORewards() external {
+        // settle previous rewards
+        settleStaker(msg.sender);
+        
+        // reward balance modification
+        uint amountReward = _ouroRewardBalance[msg.sender];
+        delete _ouroRewardBalance[msg.sender]; // zero reward balance
+
+        // mint OGS reward to sender
+        IERC20(OUROContract).safeTransfer(msg.sender, amountReward);
+    }
+
     /**
      * @dev withdraw the staked assets
      */
@@ -130,7 +155,7 @@ contract AssetStaking is Ownable {
         _totalStaked -= amount;
         
         // transfer assets back
-        AssetContract.safeTransfer(msg.sender, amount);
+        IERC20(AssetContract).safeTransfer(msg.sender, amount);
     }
 
     /**
@@ -148,7 +173,14 @@ contract AssetStaking is Ownable {
     }
     
     /**
-     * @notice sum unclaimed reward;
+     * @notice sum unclaimed OGS reward;
+     */
+    function checkOUROReward(address account) external view returns(uint256 rewards) {
+        return _ouroRewardBalance[account];
+    }
+    
+    /**
+     * @notice sum unclaimed OURO reward;
      */
     function checkOGSReward(address account) external view returns(uint256 rewards) {
         uint accountCollateral = _balances[account];
@@ -171,7 +203,7 @@ contract AssetStaking is Ownable {
                                             .div(_totalStaked);
         }
         
-        return _rewardBalance[account] + (unsettledShare + newMinedShare).mul(accountCollateral)
+        return _ogsRewardBalance[account] + (unsettledShare + newMinedShare).mul(accountCollateral)
                                             .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER;
     }
     
@@ -197,15 +229,23 @@ contract AssetStaking is Ownable {
         uint lastSettledRound = _settledRounds[account];
         uint newSettledRound = _currentRound - 1;
         
-        // round rewards
-        uint roundReward = _accShares[newSettledRound].ogsShare.sub(_accShares[lastSettledRound].ogsShare)
+        // round ogs rewards
+        uint roundOGSReward = _accShares[newSettledRound].ogsShare.sub(_accShares[lastSettledRound].ogsShare)
                                 .mul(accountCollateral)
                                 .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER    
         
-        // update reward balance
-        _rewardBalance[account] += roundReward;
+        // update ogs reward balance
+        _ogsRewardBalance[account] += roundOGSReward;
+
+        // round ouro rewards
+        uint roundOUROReward = _accShares[newSettledRound].ouroShare.sub(_accShares[lastSettledRound].ouroShare)
+                                .mul(accountCollateral)
+                                .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER            
         
-        // mark new settled reward round
+        // update ouro reward balance
+        _ouroRewardBalance[account] += roundOUROReward;
+        
+        // mark this account has settled to newSettledRound
         _settledRounds[account] = newSettledRound;
     }
      
@@ -242,10 +282,17 @@ contract AssetStaking is Ownable {
         IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
         
         // and exchange XVS to assets
-        address[] memory path = new address[](3);
-        path[0] = xvsAddress;
-        path[1] = usdtContract; // always use USDT to bridge
-        path[2] = address(AssetContract);
+        address[] memory path;
+        if (address(AssetContract) == usdtContract) {
+            path = new address[](2);
+            path[0] = xvsAddress;
+            path[1] = address(AssetContract);
+        } else {
+            path = new address[](3);
+            path[0] = xvsAddress;
+            path[1] = usdtContract; // use USDT to bridge
+            path[2] = address(AssetContract);
+        }
 
         // swap all XVS to staking asset
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
@@ -292,7 +339,7 @@ contract AssetStaking is Ownable {
         
         // step 3. exchange above 2 types of revenue to OURO
         uint256 totalRevenue = asssetsRevenue + amounts[amounts.length-1];
-        uint256 ouroBalance = OUROContract.balanceOf(address(this));
+        uint256 currentOUROBalance = IERC20(OUROContract).balanceOf(address(this));
         if (isNativeToken) {
             IOUROReserve(ouroReserveAddress).deposit{value:totalRevenue}(address(AssetContract), 0);
         } else {
@@ -300,7 +347,7 @@ contract AssetStaking is Ownable {
         }
         
         // step 4. compute diff for new ouro and set share based on current stakers pro-rata
-        uint256 newMintedOuro = OUROContract.balanceOf(address(this)).sub(ouroBalance);
+        uint256 newMintedOuro = IERC20(OUROContract).balanceOf(address(this)).sub(currentOUROBalance);
                 
         // OURO share
         uint roundShareOURO = newMintedOuro.mul(SHARE_MULTIPLIER) // avert underflow
