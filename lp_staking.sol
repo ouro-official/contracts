@@ -6,23 +6,14 @@ pragma solidity ^0.6.12;
 import "library.sol";
 
 /**
- * @dev LP staking to earn free OGS
- * LP rewards for different pair
- * OURO/BNB
- * OURO/CAKE
- * OURO/BUSD
- * OGS/BNB
- * OGS/CAKE
- * OGS/BTCB
- * OGS/BUSD
- * ....
+ * @dev LP staking related to OURO/xxx pair
  */
 contract LPStaking is Ownable {
     using SafeERC20 for IERC20;
     using SafeERC20 for IOGSToken;
     using SafeMath for uint;
     
-    uint256 internal constant SHARE_MULTIPLIER = 1e18; // share multiplier to avert division underflow
+    uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
     
     IERC20 public AssetContract; // the asset to stake
     IOGSToken public OGSContract; // the OGS token contract
