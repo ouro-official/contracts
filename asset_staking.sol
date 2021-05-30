@@ -72,14 +72,18 @@ contract AssetStaking is Ownable {
         
         venusMarkets.push(vTokenAddress_);
         IVenusDistribution(unitroller).enterMarkets(venusMarkets);
-
-        // approve OGS to router
-        IERC20(OGSContract).safeApprove(address(router), 0); 
-        IERC20(OGSContract).safeIncreaseAllowance(address(router), MAX_UINT256);
         
+        // approve OGS to router
+        IERC20(OGSContract).safeApprove(address(router), MAX_UINT256); 
+
         // approve asset to OURO reserve
-        IERC20(AssetContract).safeApprove(ouroReserveAddress, 0); 
-        IERC20(AssetContract).safeIncreaseAllowance(ouroReserveAddress, MAX_UINT256);
+        IERC20(AssetContract).safeApprove(ouroReserveAddress, MAX_UINT256); 
+
+        // approve asset to vToken
+        IERC20(AssetContract).safeApprove(vTokenAddress_, MAX_UINT256);
+        
+        // approve XVS to router
+        IERC20(xvsAddress).safeApprove(address(router), MAX_UINT256); 
     }
     
     /** 
@@ -93,6 +97,14 @@ contract AssetStaking is Ownable {
         // re-approve asset to OURO reserve
         IERC20(AssetContract).safeApprove(ouroReserveAddress, 0); 
         IERC20(AssetContract).safeIncreaseAllowance(ouroReserveAddress, MAX_UINT256);
+        
+        // re-approve asset to vToken
+        IERC20(AssetContract).safeApprove(vTokenAddress, 0);
+        IERC20(AssetContract).safeIncreaseAllowance(vTokenAddress, MAX_UINT256);
+        
+        // re-approve XVS to router
+        IERC20(xvsAddress).safeApprove(address(router), 0); 
+        IERC20(xvsAddress).safeApprove(address(router), MAX_UINT256);
     }
     
     /**
@@ -213,6 +225,7 @@ contract AssetStaking is Ownable {
     function setBlockReward(uint256 reward) external onlyOwner {
         // settle previous rewards
         updateReward();
+        
         // set new block reward
         BlockReward = reward;
     }
@@ -229,7 +242,7 @@ contract AssetStaking is Ownable {
         uint lastSettledRound = _settledRounds[account];
         uint newSettledRound = _currentRound - 1;
         
-        // round ogs rewards
+        // a) round ogs rewards
         uint roundOGSReward = _accShares[newSettledRound].ogsShare.sub(_accShares[lastSettledRound].ogsShare)
                                 .mul(accountCollateral)
                                 .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER    
@@ -237,7 +250,7 @@ contract AssetStaking is Ownable {
         // update ogs reward balance
         _ogsRewardBalance[account] += roundOGSReward;
 
-        // round ouro rewards
+        // b) bound ouro rewards
         uint roundOUROReward = _accShares[newSettledRound].ouroShare.sub(_accShares[lastSettledRound].ouroShare)
                                 .mul(accountCollateral)
                                 .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER            
@@ -281,7 +294,7 @@ contract AssetStaking is Ownable {
         // setp 1. settle venus XVS reward
         IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
         
-        // and exchange XVS to assets
+        // swap all XVS to staking asset
         address[] memory path;
         if (address(AssetContract) == usdtContract) {
             path = new address[](2);
@@ -294,11 +307,9 @@ contract AssetStaking is Ownable {
             path[2] = address(AssetContract);
         }
 
-        // swap all XVS to staking asset
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
         uint256 [] memory amounts;
         if (isNativeToken) {
-            // for native token, swap out native assets ETH, BNB with XVS
             amounts = router.swapExactTokensForETH(
                 xvsAmount, 
                 0, 
@@ -307,7 +318,6 @@ contract AssetStaking is Ownable {
                 block.timestamp.add(600)
             );
         } else {
-            // swap out ERC20 assets out
             amounts = router.swapExactTokensForTokens(
                 xvsAmount, 
                 0, 
@@ -325,10 +335,9 @@ contract AssetStaking is Ownable {
             underlyingBalance = IVToken(vTokenAddress).balanceOfUnderlying(address(this));
         }
         
-        // the diff is the assets revenue
         uint256 asssetsRevenue;
         if (underlyingBalance > _totalStaked) { 
-            // the underlying assets has increased!
+            // the diff is the assets revenue
             asssetsRevenue = underlyingBalance.sub(_totalStaked);
             if (isNativeToken) {
                 IVBNB(vTokenAddress).redeemUnderlying(asssetsRevenue);
@@ -349,11 +358,9 @@ contract AssetStaking is Ownable {
         // step 4. compute diff for new ouro and set share based on current stakers pro-rata
         uint256 newMintedOuro = IERC20(OUROContract).balanceOf(address(this)).sub(currentOUROBalance);
                 
-        // OURO share
         uint roundShareOURO = newMintedOuro.mul(SHARE_MULTIPLIER) // avert underflow
                                             .div(_totalStaked);
                                         
-        // set accumulated OURO share for current stakers
         _accShares[_currentRound].ouroShare = roundShareOURO.add(_accShares[_currentRound-1].ouroShare); 
     }
     
