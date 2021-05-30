@@ -276,9 +276,8 @@ contract AssetStaking is Ownable {
         }
 
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
-        uint256 [] memory amounts;
         if (isNativeToken) {
-            amounts = router.swapExactTokensForETH(
+            router.swapExactTokensForETH(
                 xvsAmount, 
                 0, 
                 path, 
@@ -286,7 +285,7 @@ contract AssetStaking is Ownable {
                 block.timestamp.add(600)
             );
         } else {
-            amounts = router.swapExactTokensForTokens(
+            router.swapExactTokensForTokens(
                 xvsAmount, 
                 0, 
                 path, 
@@ -303,10 +302,9 @@ contract AssetStaking is Ownable {
             underlyingBalance = IVToken(vTokenAddress).balanceOfUnderlying(address(this));
         }
         
-        uint256 asssetsRevenue;
         if (underlyingBalance > _totalStaked) { 
             // the diff is the assets revenue
-            asssetsRevenue = underlyingBalance.sub(_totalStaked);
+            uint256 asssetsRevenue = underlyingBalance.sub(_totalStaked);
             if (isNativeToken) {
                 IVBNB(vTokenAddress).redeemUnderlying(asssetsRevenue);
             } else {
@@ -315,16 +313,25 @@ contract AssetStaking is Ownable {
         }
         
         // step 3. exchange above 2 types of revenue to OURO
-        uint256 totalRevenue = asssetsRevenue + amounts[amounts.length-1];
         uint256 currentOUROBalance = IERC20(OUROContract).balanceOf(address(this));
+        uint256 totalRevenue;
         if (isNativeToken) {
-            IOUROReserve(ouroReserveAddress).deposit{value:totalRevenue}(address(AssetContract), 0);
+            totalRevenue = address(this).balance;
         } else {
-            IOUROReserve(ouroReserveAddress).deposit(address(AssetContract), totalRevenue);
+            totalRevenue = IERC20(AssetContract).balanceOf(address(this));
+        }
+        
+        if (totalRevenue > 0) {
+            if (isNativeToken) {
+                IOUROReserve(ouroReserveAddress).deposit{value:totalRevenue}(address(AssetContract), 0);
+            } else {
+                IOUROReserve(ouroReserveAddress).deposit(address(AssetContract), totalRevenue);
+            }
         }
         
         // step 4. compute diff for new ouro and set share based on current stakers pro-rata
-        uint256 newMintedOuro = IERC20(OUROContract).balanceOf(address(this)).sub(currentOUROBalance);
+        uint256 newMintedOuro = IERC20(OUROContract).balanceOf(address(this))
+                                            .sub(currentOUROBalance);
                 
         uint roundShareOURO = newMintedOuro.mul(SHARE_MULTIPLIER) // avert underflow
                                             .div(_totalStaked);
