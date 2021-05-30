@@ -40,6 +40,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
     IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+    address public lastResortFund;
     
     address immutable internal WETH = router.WETH();
     uint256 constant internal USDT_UNIT = 1e18;
@@ -114,12 +115,21 @@ contract OUROReserve is IOUROReserve,Ownable {
     }
     
     constructor() public {
+        lastResortFund = msg.sender;
         // approve xvs to router
         IERC20(xvsAddress).safeApprove(address(router), MAX_UINT256);
         // approve ogs to router
         IERC20(ogsContract).safeApprove(address(router), MAX_UINT256);
         // approve ouro to router
         IERC20(ouroContract).safeApprove(address(router), MAX_UINT256);
+    }
+    
+    /**
+     * @dev set fund of last resort address
+     */
+    function setLastResortFund(address account) external onlyOwner {
+        lastResortFund = account;
+        emit LastResortFundSet(account);
     }
     
     /**
@@ -594,7 +604,8 @@ contract OUROReserve is IOUROReserve,Ownable {
         }
         
         // after price appreciation, if we still have excessive value
-        // conduct a collateral rebalance
+        // 1. to form an insurance fund (10%)
+        // 2. conduct a ogs burn(90%)
         if (excessiveValue > 0) {
             // rebalance the collaterals
             _executeRebalance(true, excessiveValue);
@@ -605,7 +616,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev value deviates, execute buy back operations
      * valueDeviates is priced in USDT
      */
-    function _executeRebalance(bool buyOGS, uint256 valueDeviates) internal {
+    function _executeRebalance(bool isExcessive, uint256 valueDeviates) internal {
         // step 1. sum total deviated collateral value 
         uint256 totalCollateralValueDeviated;
         for (uint i=0;i<collaterals.length;i++) {
@@ -613,7 +624,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             
             // check new price of the assets & omit those not deviated
             uint256 newPrice = getAssetPrice(collateral.priceFeed);
-            if (buyOGS) {
+            if (isExcessive) {
                 // omit assets deviated negatively
                 if (newPrice < collateral.lastPrice) {
                     continue;
@@ -637,7 +648,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         
             // check new price of the assets & omit those not deviated
             uint256 newPrice = getAssetPrice(collateral.priceFeed);
-            if (buyOGS) {
+            if (isExcessive) {
                 // omit assets deviated negatively
                 if (newPrice < collateral.lastPrice) {
                     continue;
@@ -659,7 +670,7 @@ contract OUROReserve is IOUROReserve,Ownable {
                                                 .div(totalCollateralValueDeviated);
                                 
             // execute different buyback operations
-            if (buyOGS) {
+            if (isExcessive) {
                 _buybackOGS(
                     collateral.token, 
                     collateral.vTokenAddress,
@@ -699,7 +710,8 @@ contract OUROReserve is IOUROReserve,Ownable {
     
     /**
      * @dev buy back OGS with collateral
-     * slotValue is priced in USDT 
+     * 1. to form an insurance fund (10%)
+     * 2. conduct a ogs burn(90%)
      */
     function _buybackOGS(address token ,address vTokenAddress, uint256 assetUnit, AggregatorV3Interface priceFeed, uint256 slotValue) internal {
         uint256 collateralToBuyOGS = slotValue
@@ -714,7 +726,45 @@ contract OUROReserve is IOUROReserve,Ownable {
         } else {
             redeemedAmount = IERC20(token).balanceOf(address(this));
         }
+         
+        // split assets allocation
+        uint256 assetToInsuranceFund = redeemedAmount.mul(10).div(100);
+        uint256 assetToBuyBackOGS = redeemedAmount.sub(assetToInsuranceFund);
         
+        // allocation a)
+        // swap to USDT to form last resort insurance fund (10%)
+        if (token != usdtContract) {
+            address[] memory path;
+            path = new address[](2);
+            path[0] = token;
+            path[1] = usdtContract;
+            
+            // swap USDT out
+            if (token == WETH) {
+                router.swapExactETHForTokens{value:assetToInsuranceFund}(
+                    0, 
+                    path, 
+                    address(this), 
+                    block.timestamp.add(600)
+                );
+                
+            } else {
+                router.swapExactTokensForTokens(
+                    assetToInsuranceFund,
+                    0, 
+                    path, 
+                    address(this), 
+                    block.timestamp.add(600)
+                );
+            }
+        }
+        
+        // transfer all USDT to last resort fund
+        uint256 amountUSDT = IERC20(usdtContract).balanceOf(address(this));
+        IERC20(usdtContract).safeTransfer(lastResortFund, amountUSDT);
+        
+        // allocation b)
+        // conduct a ogs burn(90%)
         // the path to find how many OGS can be swapped
         // path:
         //  exact collateral -> USDT -> ??? OGS
@@ -733,7 +783,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         // swap OGS out
         uint [] memory amounts;
         if (token == WETH) {
-            amounts = router.swapExactETHForTokens{value:redeemedAmount}(
+            amounts = router.swapExactETHForTokens{value:assetToBuyBackOGS}(
                 0, 
                 path, 
                 address(this), 
@@ -742,7 +792,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             
         } else {
             amounts =router.swapExactTokensForTokens(
-                redeemedAmount,
+                assetToBuyBackOGS,
                 0, 
                 path, 
                 address(this), 
@@ -928,4 +978,5 @@ contract OUROReserve is IOUROReserve,Ownable {
      event RemoveCollateral(address token);
      event ResetAllowance();
      event RevenueDistributed();
+     event LastResortFundSet(address account);
 }

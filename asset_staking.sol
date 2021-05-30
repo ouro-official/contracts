@@ -30,7 +30,8 @@ contract AssetStaking is Ownable {
     address public usdtContract = 0x55d398326f99059fF775485246999027B3197955;
 
     // pancake router
-    IPancakeRouter02 public router = IPancakeRouter02(0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F);
+    IPancakeRouter02 public router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+    uint256 constant internal MAX_UINT256 = uint256(-1);
     
     address[] venusMarkets; // venus market, set at constructor
     mapping (address => uint256) private _balances; // tracking staker's value
@@ -66,8 +67,24 @@ contract AssetStaking is Ownable {
         
         venusMarkets.push(vTokenAddress_);
         IVenusDistribution(unitroller).enterMarkets(venusMarkets);
-    }
 
+        // approve OGS to router
+        IERC20(ogsContract).safeApprove(address(router), 0); 
+        IERC20(ogsContract).safeIncreaseAllowance(address(router), MAX_UINT256);
+        
+        // approve asset to OURO reserve
+        IERC20(AssetContract).safeApprove(ouroReserveAddress, 0); 
+        IERC20(AssetContract).safeIncreaseAllowance(ouroReserveAddress, MAX_UINT256);
+    }
+    
+    /** 
+     * @dev reset allowance for special token
+     */
+    function resetAllowance(address token) external onlyOwner {
+       IERC20(token).safeApprove(address(router), 0); 
+       IERC20(token).safeIncreaseAllowance(address(router), MAX_UINT256);
+    }
+    
     /**
      * @dev deposit some assets
      */
@@ -232,22 +249,21 @@ contract AssetStaking is Ownable {
 
         // swap all XVS to staking asset
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
-        uint [] memory amounts = router.getAmountsOut(xvsAmount, path);
-        uint256 assetOut = amounts[path.length - 1];
-        
+        uint256 [] memory amounts;
         if (isNativeToken) {
             // for native token, swap out native assets ETH, BNB with XVS
-            router.swapTokensForExactETH(assetOut, 
+            amounts = router.swapExactTokensForETH(
                 xvsAmount, 
+                0, 
                 path, 
                 address(this), 
                 block.timestamp.add(600)
             );
         } else {
             // swap out ERC20 assets out
-            router.swapTokensForExactTokens(
-                assetOut, 
+            amounts = router.swapExactTokensForTokens(
                 xvsAmount, 
+                0, 
                 path, 
                 address(this), 
                 block.timestamp.add(600)
@@ -275,7 +291,7 @@ contract AssetStaking is Ownable {
         }
         
         // step 3. exchange above 2 types of revenue to OURO
-        uint256 totalRevenue = asssetsRevenue + assetOut;
+        uint256 totalRevenue = asssetsRevenue + amounts[amounts.length-1];
         uint256 ouroBalance = OUROContract.balanceOf(address(this));
         if (isNativeToken) {
             IOUROReserve(ouroReserveAddress).deposit{value:totalRevenue}(address(AssetContract), 0);
