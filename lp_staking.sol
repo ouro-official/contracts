@@ -34,13 +34,39 @@ contract LPStaking is Ownable {
     // @dev last rewarded block
     uint256 private _lastRewardBlock = block.number;
     
+    /**
+     * ======================================================================================
+     * 
+     * SYSTEM FUNCTIONS
+     *
+     * ======================================================================================
+     */
     constructor(IOGSToken ogsContract, IERC20 assetContract) public {
         AssetContract = assetContract; 
         OGSContract = ogsContract;
     }
-
+        
     /**
-     * @dev stake some assets
+     * @dev set block reward
+     */
+    function setBlockReward(uint256 reward) external onlyOwner {
+        // settle previous rewards
+        updateReward();
+        // set new block reward
+        BlockReward = reward;
+    }
+    
+    
+    /**
+     * ======================================================================================
+     * 
+     * STAKING FUNCTIONS
+     *
+     * ======================================================================================
+     */
+     
+    /**
+     * @dev stake assets
      */
     function stake(uint256 amount) external {
         // settle previous rewards
@@ -53,7 +79,7 @@ contract LPStaking is Ownable {
     }
     
     /**
-     * @dev claim rewards only
+     * @dev claim rewards
      */
     function claimRewards() external {
         // settle previous rewards
@@ -87,51 +113,13 @@ contract LPStaking is Ownable {
     /**
      * @dev return value staked for an account
      */
-    function numStaked(address account) external view returns (uint256) {
-        return _balances[account];
-    }
+    function numStaked(address account) external view returns (uint256) { return _balances[account]; }
 
     /**
      * @dev return total staked value
      */
-    function totalStaked() external view returns (uint256) {
-        return _totalStaked;
-    }
-    
-    /**
-     * @notice sum unclaimed reward;
-     */
-    function checkReward(address account) external view returns(uint256 rewards) {
-        uint accountCollateral = _balances[account];
-        uint lastSettledRound = _settledRounds[account];
-        
-        // reward = settled rewards + unsettled rewards + newMined rewards
-        uint unsettledShare = _accShares[_currentRound-1].sub(_accShares[lastSettledRound]);
-        
-        uint newMinedShare;
-        if (_totalStaked > 0) {
-            uint blocksToReward = block.number.sub(_lastRewardBlock);
-            uint mintedReward = BlockReward.mul(blocksToReward);
-    
-            // reward share
-            newMinedShare = mintedReward.mul(SHARE_MULTIPLIER)
-                                        .div(_totalStaked);
-        }
-        
-        return _rewardBalance[account] + (unsettledShare + newMinedShare).mul(accountCollateral)
-                                            .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER;
-    }
-    
-    /**
-     * @dev set block reward
-     */
-    function setBlockReward(uint256 reward) external onlyOwner {
-        // settle previous rewards
-        updateReward();
-        // set new block reward
-        BlockReward = reward;
-    }
-    
+    function totalStaked() external view returns (uint256) { return _totalStaked; }
+
     /**
      * @dev settle a staker
      */
@@ -156,7 +144,7 @@ contract LPStaking is Ownable {
         _settledRounds[account] = newSettledRound;
     }
      
-     /**
+    /**
      * @dev update accumulated block reward until current block
      */
     function updateReward() internal {
@@ -186,5 +174,37 @@ contract LPStaking is Ownable {
        
         // next round setting                                 
         _currentRound++;
+    }
+    
+    /**
+     * ======================================================================================
+     * 
+     * VIEW FUNCTIONS
+     *
+     * ======================================================================================
+     */
+         
+    /**
+     * @notice sum unclaimed reward;
+     */
+    function checkReward(address account) external view returns(uint256 rewards) {
+        uint accountCollateral = _balances[account];
+        uint lastSettledRound = _settledRounds[account];
+        
+        // reward = settled rewards + unsettled rewards + newMined rewards
+        uint unsettledShare = _accShares[_currentRound-1].sub(_accShares[lastSettledRound]);
+        
+        uint newMinedShare;
+        if (_totalStaked > 0) {
+            uint blocksToReward = block.number.sub(_lastRewardBlock);
+            uint mintedReward = BlockReward.mul(blocksToReward);
+    
+            // reward share
+            newMinedShare = mintedReward.mul(SHARE_MULTIPLIER)
+                                        .div(_totalStaked);
+        }
+        
+        return _rewardBalance[account] + (unsettledShare + newMinedShare).mul(accountCollateral)
+                                            .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER;
     }
 }
