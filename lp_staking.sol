@@ -109,16 +109,6 @@ contract LPStaking is Ownable {
         // transfer assets back
         AssetContract.safeTransfer(msg.sender, amount);
     }
-    
-    /**
-     * @dev return value staked for an account
-     */
-    function numStaked(address account) external view returns (uint256) { return _balances[account]; }
-
-    /**
-     * @dev return total staked value
-     */
-    function totalStaked() external view returns (uint256) { return _totalStaked; }
 
     /**
      * @dev settle a staker
@@ -183,7 +173,17 @@ contract LPStaking is Ownable {
      *
      * ======================================================================================
      */
-         
+        
+    /**
+     * @dev return value staked for an account
+     */
+    function numStaked(address account) external view returns (uint256) { return _balances[account]; }
+
+    /**
+     * @dev return total staked value
+     */
+    function totalStaked() external view returns (uint256) { return _totalStaked; }
+     
     /**
      * @notice sum unclaimed reward;
      */
