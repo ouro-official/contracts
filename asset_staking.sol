@@ -59,7 +59,15 @@ contract AssetStaking is Ownable {
     mapping (address => uint256) internal _ogsRewardBalance;
     // @dev ouro reward balance, settle but not claimed
     mapping (address => uint256) internal _ouroRewardBalance;
-    
+
+    /**
+     * ======================================================================================
+     * 
+     * SYSTEM FUNCTIONS
+     *
+     * ======================================================================================
+     */
+
     constructor(address ogsContract, address assetContract, address vTokenAddress_) public {
         if (address(assetContract) == router.WETH()) {
             isNativeToken = true;
@@ -87,7 +95,7 @@ contract AssetStaking is Ownable {
     }
     
     /** 
-     * @dev reset allowance
+     * @dev reset allowances
      */
     function resetAllowances() external onlyOwner {
         // re-approve OGS to router
@@ -106,9 +114,29 @@ contract AssetStaking is Ownable {
         IERC20(xvsAddress).safeApprove(address(router), 0); 
         IERC20(xvsAddress).safeApprove(address(router), MAX_UINT256);
     }
+        
+    /**
+     * @dev set block reward
+     */
+    function setBlockReward(uint256 reward) external onlyOwner {
+        // settle previous rewards
+        updateReward();
+        
+        // set new block reward
+        BlockReward = reward;
+    }
+    
     
     /**
-     * @dev deposit some assets
+     * ======================================================================================
+     * 
+     * STAKING FUNCTIONS
+     *
+     * ======================================================================================
+     */
+     
+    /**
+     * @dev deposit assets
      */
     function deposit(uint256 amount) external {
         // settle previous rewards
@@ -154,7 +182,7 @@ contract AssetStaking is Ownable {
     }
 
     /**
-     * @dev withdraw the staked assets
+     * @dev withdraw assets
      */
     function withdraw(uint256 amount) external {
         require(amount <= _balances[msg.sender], "balance exceeded");
@@ -170,66 +198,6 @@ contract AssetStaking is Ownable {
         IERC20(AssetContract).safeTransfer(msg.sender, amount);
     }
 
-    /**
-     * @dev return value staked for an account
-     */
-    function numStaked(address account) external view returns (uint256) {
-        return _balances[account];
-    }
-
-    /**
-     * @dev return total staked value
-     */
-    function totalStaked() external view returns (uint256) {
-        return _totalStaked;
-    }
-    
-    /**
-     * @notice sum unclaimed OGS reward;
-     */
-    function checkOUROReward(address account) external view returns(uint256 rewards) {
-        return _ouroRewardBalance[account];
-    }
-    
-    /**
-     * @notice sum unclaimed OURO reward;
-     */
-    function checkOGSReward(address account) external view returns(uint256 rewards) {
-        uint accountCollateral = _balances[account];
-        uint lastSettledRound = _settledRounds[account];
-        
-        // reward = settled rewards + unsettled rewards + newMined rewards
-        uint unsettledShare = _accShares[_currentRound-1].ogsShare.sub(_accShares[lastSettledRound].ogsShare);
-        
-        uint newMinedShare;
-        if (_totalStaked > 0) {
-            uint blocksToReward = block.number
-                                            .sub(_lastRewardBlock);
-                                            
-            uint mintedReward = BlockReward
-                                            .mul(blocksToReward);
-    
-            // reward share
-            newMinedShare = mintedReward
-                                            .mul(SHARE_MULTIPLIER)
-                                            .div(_totalStaked);
-        }
-        
-        return _ogsRewardBalance[account] + (unsettledShare + newMinedShare).mul(accountCollateral)
-                                            .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER;
-    }
-    
-    /**
-     * @dev set block reward
-     */
-    function setBlockReward(uint256 reward) external onlyOwner {
-        // settle previous rewards
-        updateReward();
-        
-        // set new block reward
-        BlockReward = reward;
-    }
-    
     /**
      * @dev settle a staker
      */
@@ -250,7 +218,7 @@ contract AssetStaking is Ownable {
         // update ogs reward balance
         _ogsRewardBalance[account] += roundOGSReward;
 
-        // b) bound ouro rewards
+        // b) round ouro rewards
         uint roundOUROReward = _accShares[newSettledRound].ouroShare.sub(_accShares[lastSettledRound].ouroShare)
                                 .mul(accountCollateral)
                                 .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER            
@@ -382,6 +350,57 @@ contract AssetStaking is Ownable {
             
         // accumulate reward shares
         _accShares[_currentRound].ogsShare = roundShareOGS.add(_accShares[_currentRound-1].ogsShare); 
+    }
+    
+    /**
+     * ======================================================================================
+     * 
+     * VIEW FUNCTIONS
+     *
+     * ======================================================================================
+     */
+
+    /**
+     * @dev return value staked for an account
+     */
+    function numStaked(address account) external view returns (uint256) { return _balances[account]; }
+
+    /**
+     * @dev return total staked value
+     */
+    function totalStaked() external view returns (uint256) { return _totalStaked; }
+    
+    /**
+     * @notice sum unclaimed OGS reward;
+     */
+    function checkOUROReward(address account) external view returns(uint256 rewards) { return _ouroRewardBalance[account]; }
+    
+    /**
+     * @notice sum unclaimed OURO reward;
+     */
+    function checkOGSReward(address account) external view returns(uint256 rewards) {
+        uint accountCollateral = _balances[account];
+        uint lastSettledRound = _settledRounds[account];
+        
+        // reward = settled rewards + unsettled rewards + newMined rewards
+        uint unsettledShare = _accShares[_currentRound-1].ogsShare.sub(_accShares[lastSettledRound].ogsShare);
+        
+        uint newMinedShare;
+        if (_totalStaked > 0) {
+            uint blocksToReward = block.number
+                                            .sub(_lastRewardBlock);
+                                            
+            uint mintedReward = BlockReward
+                                            .mul(blocksToReward);
+    
+            // reward share
+            newMinedShare = mintedReward
+                                            .mul(SHARE_MULTIPLIER)
+                                            .div(_totalStaked);
+        }
+        
+        return _ogsRewardBalance[account] + (unsettledShare + newMinedShare).mul(accountCollateral)
+                                            .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER;
     }
     
     /**
