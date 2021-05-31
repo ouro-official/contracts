@@ -804,6 +804,9 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // burn OGS
         ogsContract.burn(amounts[amounts.length - 1]);
+        
+        // log
+        emit OGSBurned(amounts[amounts.length - 1]);
     }
     
     /**
@@ -866,6 +869,9 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // accounting
         _assetsBalance[token] = _assetsBalance[token].add(swappedOut);
+        
+        // log
+        emit CollateralBroughtBack(token, swappedOut);
     }
     
     /**
@@ -903,7 +909,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         }
         // claim venus XVS reward
         IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
-        
+
         // and exchange XVS to OGS
         address[] memory path = new address[](3);
         path[0] = xvsAddress;
@@ -925,6 +931,9 @@ contract OUROReserve is IOUROReserve,Ownable {
 
         // burn OGS
         ogsContract.burn(ogsAmountOut);
+                
+        // log
+        emit XVSDist(xvsAmount);
      }
      
      function _distributeAssetRevenue() internal {   
@@ -975,7 +984,10 @@ contract OUROReserve is IOUROReserve,Ownable {
      event Rebased(address account);
      event NewCollateral(address token);
      event RemoveCollateral(address token);
+     event CollateralBroughtBack(address token, uint256 amount);
+     event OGSBurned(uint ogsAmount);
      event ResetAllowance();
+     event XVSDist(uint256 amount);
      event RevenueDistributed();
      event LastResortFundSet(address account);
 }
