@@ -10,7 +10,6 @@ import "library.sol";
  */
 contract LPStaking is Ownable {
     using SafeERC20 for IERC20;
-    using SafeERC20 for IOGSToken;
     using SafeMath for uint;
     
     uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
