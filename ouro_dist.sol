@@ -36,6 +36,9 @@ contract OURODist is IOURODist, Ownable {
     function resetAllowance(address token) external override onlyOwner {
        IERC20(token).safeApprove(address(router), 0); 
        IERC20(token).safeIncreaseAllowance(address(router), MAX_UINT256);
+       
+       // log
+       emit ResetAllowance();
     }
     
     /**
@@ -57,6 +60,9 @@ contract OURODist is IOURODist, Ownable {
         // 50% - Split to form LP tokens for the platform. 
         uint256 revenueToFormLP = revenueAmount.sub(revenueToBuyBackOGS);
         _revenueToFormLP(token, revenueToFormLP);
+        
+        // log
+        emit RevenuArrival(token, revenueAmount);
     }
     
     /**
@@ -103,6 +109,9 @@ contract OURODist is IOURODist, Ownable {
 
        // burn OGS the actual swapped out
        ogsContract.burn(amounts[amounts.length - 1]);
+       
+       // log
+       emit OGSBurned(amounts[amounts.length - 1]);
     }
 
      /**
@@ -179,7 +188,8 @@ contract OURODist is IOURODist, Ownable {
        // note we always use the maximum possible 
        uint256 token0Amt = IERC20(ogsContract).balanceOf(address(this));
        uint256 token1Amt = IERC20(usdtContract).balanceOf(address(this));
-       router.addLiquidity(
+       
+       (uint amountA, uint amountB, uint liquidity) = router.addLiquidity(
            address(ogsContract),
            usdtContract,
            token0Amt,
@@ -189,5 +199,20 @@ contract OURODist is IOURODist, Ownable {
            address(this),
            block.timestamp.add(swapDelay)
        );
+       
+       // log
+       emit LiquidityAdded(amountA, amountB, liquidity);
     }
+    
+    /**
+     * ======================================================================================
+     * 
+     * OURO Distribution events
+     *
+     * ======================================================================================
+     */
+     event ResetAllowance();
+     event RevenuArrival(address token, uint256 amount);
+     event OGSBurned(uint ogsAmount);
+     event LiquidityAdded(uint ogsAmount, uint usdtAmount, uint liquidity);
 }
