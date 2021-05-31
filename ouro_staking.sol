@@ -94,7 +94,7 @@ contract OUROStaking is Ownable {
         delete _rewardBalance[msg.sender]; // zero reward balance
 
         // vest reward to sender
-        IOUROVesting(vestingContract).vest(msg.sender, amountReward);
+        OUROVesting(vestingContract).vest(msg.sender, amountReward);
 
         // log
         emit RewardVested(msg.sender, amountReward);
@@ -243,7 +243,7 @@ contract OUROStaking is Ownable {
 /**
  * @dev OURO Vesting contract
  */
-contract OUROVesting is Ownable, IOUROVesting {
+contract OUROVesting is Ownable {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
 
@@ -300,7 +300,7 @@ contract OUROVesting is Ownable, IOUROVesting {
     /**
      * @dev vest some OGS tokens for an account
      */
-    function vest(address account, uint256 amount) external override onlyOwner {
+    function vest(address account, uint256 amount) external onlyOwner {
         _update();
 
         rounds[currentRound].balances[account] += amount;

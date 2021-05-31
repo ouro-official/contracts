@@ -1062,10 +1062,6 @@ interface IOURODist {
     function resetAllowance(address token) external;
 }
 
-interface IOUROVesting {
-    function vest(address account, uint256 amount) external;
-}
-
 interface IVenusDistribution {
     function oracle() external view returns (address);
 
