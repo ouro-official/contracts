@@ -16,7 +16,7 @@ contract AssetStaking is Ownable {
     
     uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
     
-    address public AssetContract; // the asset to stake
+    address public assetContract; // the asset to stake
     address public immutable vTokenAddress; // venus vToken Address
     
     address public constant ouroContract = 0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628;
@@ -66,13 +66,13 @@ contract AssetStaking is Ownable {
      * ======================================================================================
      */
 
-    constructor(address assetContract, address vTokenAddress_) public {
-        if (address(assetContract) == router.WETH()) {
+    constructor(address assetContract_, address vTokenAddress_) public {
+        if (assetContract == router.WETH()) {
             isNativeToken = true;
         }
         
         // set addresses
-        AssetContract = assetContract; 
+        assetContract = assetContract_; 
         vTokenAddress = vTokenAddress_;
         
         venusMarkets.push(vTokenAddress_);
@@ -82,10 +82,10 @@ contract AssetStaking is Ownable {
         IERC20(ogsContract).safeApprove(address(router), MAX_UINT256); 
 
         // approve asset to OURO reserve
-        IERC20(AssetContract).safeApprove(ouroReserveAddress, MAX_UINT256); 
+        IERC20(assetContract).safeApprove(ouroReserveAddress, MAX_UINT256); 
 
         // approve asset to vToken
-        IERC20(AssetContract).safeApprove(vTokenAddress_, MAX_UINT256);
+        IERC20(assetContract).safeApprove(vTokenAddress_, MAX_UINT256);
         
         // approve XVS to router
         IERC20(xvsAddress).safeApprove(address(router), MAX_UINT256); 
@@ -100,12 +100,12 @@ contract AssetStaking is Ownable {
         IERC20(ogsContract).safeIncreaseAllowance(address(router), MAX_UINT256);
         
         // re-approve asset to OURO reserve
-        IERC20(AssetContract).safeApprove(ouroReserveAddress, 0); 
-        IERC20(AssetContract).safeIncreaseAllowance(ouroReserveAddress, MAX_UINT256);
+        IERC20(assetContract).safeApprove(ouroReserveAddress, 0); 
+        IERC20(assetContract).safeIncreaseAllowance(ouroReserveAddress, MAX_UINT256);
         
         // re-approve asset to vToken
-        IERC20(AssetContract).safeApprove(vTokenAddress, 0);
-        IERC20(AssetContract).safeIncreaseAllowance(vTokenAddress, MAX_UINT256);
+        IERC20(assetContract).safeApprove(vTokenAddress, 0);
+        IERC20(assetContract).safeIncreaseAllowance(vTokenAddress, MAX_UINT256);
         
         // re-approve XVS to router
         IERC20(xvsAddress).safeApprove(address(router), 0); 
@@ -140,7 +140,7 @@ contract AssetStaking is Ownable {
         settleStaker(msg.sender);
         
         // transfer asset from AssetContract
-        IERC20(AssetContract).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(assetContract).safeTransferFrom(msg.sender, address(this), amount);
         _balances[msg.sender] += amount;
         _totalStaked += amount;
         
@@ -192,7 +192,7 @@ contract AssetStaking is Ownable {
         _totalStaked -= amount;
         
         // transfer assets back
-        IERC20(AssetContract).safeTransfer(msg.sender, amount);
+        IERC20(assetContract).safeTransfer(msg.sender, amount);
     }
 
     /**
@@ -261,15 +261,15 @@ contract AssetStaking is Ownable {
         
         // swap all XVS to staking asset
         address[] memory path;
-        if (address(AssetContract) == usdtContract) {
+        if (assetContract == usdtContract) {
             path = new address[](2);
             path[0] = xvsAddress;
-            path[1] = address(AssetContract);
+            path[1] = assetContract;
         } else {
             path = new address[](3);
             path[0] = xvsAddress;
             path[1] = usdtContract; // use USDT to bridge
-            path[2] = address(AssetContract);
+            path[2] = assetContract;
         }
 
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
@@ -315,14 +315,14 @@ contract AssetStaking is Ownable {
         if (isNativeToken) {
             totalRevenue = address(this).balance;
         } else {
-            totalRevenue = IERC20(AssetContract).balanceOf(address(this));
+            totalRevenue = IERC20(assetContract).balanceOf(address(this));
         }
         
         if (totalRevenue > 0) {
             if (isNativeToken) {
-                IOUROReserve(ouroReserveAddress).deposit{value:totalRevenue}(address(AssetContract), 0);
+                IOUROReserve(ouroReserveAddress).deposit{value:totalRevenue}(assetContract, 0);
             } else {
-                IOUROReserve(ouroReserveAddress).deposit(address(AssetContract), totalRevenue);
+                IOUROReserve(ouroReserveAddress).deposit(assetContract, totalRevenue);
             }
         }
         

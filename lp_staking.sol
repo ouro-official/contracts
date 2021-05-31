@@ -14,7 +14,7 @@ contract LPStaking is Ownable {
     
     uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
     
-    IERC20 public AssetContract; // the asset to stake
+    address public assetContract; // the asset to stake
     address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
 
     mapping (address => uint256) private _balances; // tracking staker's value
@@ -40,8 +40,8 @@ contract LPStaking is Ownable {
      *
      * ======================================================================================
      */
-    constructor(IERC20 assetContract) public {
-        AssetContract = assetContract; 
+    constructor(address assetContract_) public {
+        assetContract = assetContract_; 
     }
         
     /**
@@ -71,7 +71,7 @@ contract LPStaking is Ownable {
         settleStaker(msg.sender);
         
         // transfer asset from AssetContract
-        AssetContract.safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(assetContract).safeTransferFrom(msg.sender, address(this), amount);
         _balances[msg.sender] += amount;
         _totalStaked += amount;
     }
@@ -105,7 +105,7 @@ contract LPStaking is Ownable {
         _totalStaked -= amount;
         
         // transfer assets back
-        AssetContract.safeTransfer(msg.sender, amount);
+        IERC20(assetContract).safeTransfer(msg.sender, amount);
     }
 
     /**
