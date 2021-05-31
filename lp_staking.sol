@@ -66,7 +66,7 @@ contract LPStaking is Ownable {
     /**
      * @dev stake assets
      */
-    function stake(uint256 amount) external {
+    function deposit(uint256 amount) external {
         // settle previous rewards
         settleStaker(msg.sender);
         
@@ -74,6 +74,9 @@ contract LPStaking is Ownable {
         IERC20(assetContract).safeTransferFrom(msg.sender, address(this), amount);
         _balances[msg.sender] += amount;
         _totalStaked += amount;
+        
+        // log
+        emit Deposit(msg.sender, amount);
     }
     
     /**
@@ -89,6 +92,9 @@ contract LPStaking is Ownable {
 
         // mint reward to sender
         IOGSToken(ogsContract).mint(msg.sender, amountReward);
+        
+        // log
+        emit OGSClaimed(msg.sender, amountReward);
     }
     
     /**
@@ -106,6 +112,9 @@ contract LPStaking is Ownable {
         
         // transfer assets back
         IERC20(assetContract).safeTransfer(msg.sender, amount);
+        
+        // log
+        emit Withdraw(msg.sender, amount);
     }
 
     /**
@@ -205,4 +214,15 @@ contract LPStaking is Ownable {
         return _rewardBalance[account] + (unsettledShare + newMinedShare).mul(accountCollateral)
                                             .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER;
     }
+    
+    /**
+     * ======================================================================================
+     * 
+     * STAKING EVENTS
+     *
+     * ======================================================================================
+     */
+     event Deposit(address account, uint256 amount);
+     event Withdraw(address account, uint256 amount);
+     event OGSClaimed(address account, uint256 amount);
 }
