@@ -28,6 +28,9 @@ contract OUROStaking is Ownable {
     
     /// @dev initial block reward
     uint256 public BlockReward = 0;
+    uint256 public constant TokenRewardHardCap = 50000000000 * 1e18;
+    // @dev token rewarded accounting
+    uint256 public TokenRewarded = 0;
     
     /// @dev round index mapping to accumulate share.
     mapping (uint => uint) private _accShares;
@@ -166,8 +169,16 @@ contract OUROStaking is Ownable {
         uint blocksToReward = block.number.sub(_lastRewardBlock);
         uint mintedReward = BlockReward.mul(blocksToReward);
         uint penalty = IERC20(ogsContract).balanceOf(address(this));
+        
+        // align to mint hard cap
+        if (TokenRewarded + mintedReward > TokenRewardHardCap) {
+            mintedReward = (TokenRewarded + mintedReward).sub(TokenRewardHardCap);
+        }
+        
+        // count rewarded tokens
+        TokenRewarded = TokenRewarded.add(mintedReward);
 
-        // reward share
+        // reward share(including penalty)
         uint roundShare = penalty.add(mintedReward)
                                     .mul(SHARE_MULTIPLIER)
                                     .div(_totalStaked);
@@ -179,7 +190,7 @@ contract OUROStaking is Ownable {
         _accShares[_currentRound] = roundShare.add(_accShares[_currentRound-1]); 
         
         // IMPORTANT:
-        // transfer penalty to ogsPaymentAccount after setting reward share
+        // transfer penalty token to ogsPaymentAccount after setting reward share
         IERC20(ogsContract).safeTransfer(ogsPaymentAccount, penalty);
        
         // next round setting                                 
@@ -208,7 +219,6 @@ contract OUROStaking is Ownable {
      * @notice sum unclaimed reward;
      */
     function checkReward(address account) external view returns(uint256 rewards) {
-        uint penalty = IERC20(ogsContract).balanceOf(address(this));
         uint accountCollateral = _balances[account];
         uint lastSettledRound = _settledRounds[account];
         
@@ -219,11 +229,17 @@ contract OUROStaking is Ownable {
         if (_totalStaked > 0) {
             uint blocksToReward = block.number.sub(_lastRewardBlock);
             uint mintedReward = BlockReward.mul(blocksToReward);
-    
-            // reward share
+            uint penalty = IERC20(ogsContract).balanceOf(address(this));
+
+            // reward share(including penalty)
             newMinedShare = penalty.add(mintedReward)
                                     .mul(SHARE_MULTIPLIER)
                                     .div(_totalStaked);
+                                    
+            // align to mint hard cap
+            if (TokenRewarded + mintedReward > TokenRewardHardCap) {
+                mintedReward = (TokenRewarded + mintedReward).sub(TokenRewardHardCap);
+            }
         }
         
         return _rewardBalance[account] + (unsettledShare + newMinedShare).mul(accountCollateral)
