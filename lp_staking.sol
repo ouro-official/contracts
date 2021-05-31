@@ -52,8 +52,10 @@ contract LPStaking is Ownable {
         updateReward();
         // set new block reward
         BlockReward = reward;
+            
+        // log
+        emit BlockRewardSet(reward);
     }
-    
     
     /**
      * ======================================================================================
@@ -225,4 +227,5 @@ contract LPStaking is Ownable {
      event Deposit(address account, uint256 amount);
      event Withdraw(address account, uint256 amount);
      event OGSClaimed(address account, uint256 amount);
+     event BlockRewardSet(uint256 reward);
 }

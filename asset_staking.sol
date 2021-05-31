@@ -110,6 +110,9 @@ contract AssetStaking is Ownable {
         // re-approve XVS to router
         IERC20(xvsAddress).safeApprove(address(router), 0); 
         IERC20(xvsAddress).safeApprove(address(router), MAX_UINT256);
+        
+        // log
+        emit AllowanceReset();
     }
         
     /**
@@ -121,6 +124,9 @@ contract AssetStaking is Ownable {
         
         // set new block reward
         BlockReward = reward;
+        
+        // log
+        emit BlockRewardSet(reward);
     }
     
     
@@ -459,4 +465,6 @@ contract AssetStaking is Ownable {
      event Withdraw(address account, uint256 amount);
      event OUROClaimed(address account, uint256 amount);
      event OGSClaimed(address account, uint256 amount);
+     event BlockRewardSet(uint256 reward);
+     event AllowanceReset();
 }
