@@ -11,12 +11,13 @@ contract OUROVesting is Ownable, IOUROVesting {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
 
-    uint256 internal constant DAY = 10; // @dev MODIFY TO 86400 BEFORE MAINNET
+    uint256 internal constant DAY = 1 days;
     uint256 internal constant VestingPeriod = DAY * 90;
     
     address public ouroStakingContract;
     address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
-
+    address public constant ogsPaymentAccount = 0xffA2320b690E0456862f543eC10f6c51fC0Aac99;
+    
     // @dev vestable group
     mapping(address => bool) public vestableGroup;
     
@@ -65,7 +66,7 @@ contract OUROVesting is Ownable, IOUROVesting {
     /**
      * @dev round update operation
      */
-    function update() public {
+    function _update() internal {
         uint numDays = block.timestamp.sub(rounds[currentRound].startDate).div(DAY);
         if (numDays > 0) {
             currentRound++;
@@ -85,7 +86,7 @@ contract OUROVesting is Ownable, IOUROVesting {
      * @dev vest some OGS tokens for an account
      */
     function vest(address account, uint256 amount) external override onlyVestableGroup {
-        update();
+        _update();
 
         rounds[currentRound].balances[account] += amount;
         balances[account] += amount;
@@ -99,11 +100,11 @@ contract OUROVesting is Ownable, IOUROVesting {
      * @dev claim unlocked rewards without penalty
      */
     function claimUnlocked() external {
-        update();
+        _update();
         
         uint256 unlockedAmount = checkUnlocked(msg.sender);
         balances[msg.sender] -= unlockedAmount;
-        IERC20(ogsContract).safeTransfer(msg.sender, unlockedAmount);
+        IERC20(ogsContract).safeTransferFrom(ogsPaymentAccount, msg.sender, unlockedAmount);
         
         emit Claimed(msg.sender, unlockedAmount);
     }
@@ -112,13 +113,13 @@ contract OUROVesting is Ownable, IOUROVesting {
      * @dev claim all rewards with penalty(50%)
      */
     function claimAllWithPenalty() external {
-        update();
+        _update();
         
         uint256 lockedAmount = checkLocked(msg.sender);
         uint256 penalty = lockedAmount/2;
         uint256 rewardsToClaim = balances[msg.sender].sub(penalty);
 
-        // reset balances in this (still locked) to 0
+        // reset balances which still locked to 0
         uint256 earliestVestedDate = block.timestamp - VestingPeriod;
         for (int256 i= currentRound; i>=0; i--) {
             if (rounds[i].startDate < earliestVestedDate) {
@@ -133,13 +134,13 @@ contract OUROVesting is Ownable, IOUROVesting {
         
         // transfer rewards to msg.sender        
         if (rewardsToClaim > 0) {
-            IERC20(ogsContract).safeTransfer(msg.sender, rewardsToClaim);
+            IERC20(ogsContract).safeTransferFrom(ogsPaymentAccount, msg.sender, rewardsToClaim);
             emit Claimed(msg.sender, rewardsToClaim);
         }
         
         // 50% penalty token goes to OURO staking contract
         if (penalty > 0) {
-            IERC20(ogsContract).safeTransfer(ouroStakingContract, penalty);
+            IERC20(ogsContract).safeTransferFrom(ogsPaymentAccount, ouroStakingContract, penalty);
             emit Penalty(msg.sender, penalty);
         }
     }
