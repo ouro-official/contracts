@@ -28,8 +28,9 @@ contract OUROStaking is Ownable {
     
     /// @dev initial block reward
     uint256 public BlockReward = 0;
+    /// @dev hard cap of ogs reward
     uint256 public constant TokenRewardHardCap = 50000000000 * 1e18;
-    // @dev token rewarded accounting
+    // @dev token rewarded counting
     uint256 public TokenRewarded = 0;
     
     /// @dev round index mapping to accumulate share.
@@ -172,7 +173,7 @@ contract OUROStaking is Ownable {
         
         // align to mint hard cap
         if (TokenRewarded + mintedReward > TokenRewardHardCap) {
-            mintedReward = (TokenRewarded + mintedReward).sub(TokenRewardHardCap);
+            mintedReward = TokenRewardHardCap.sub(TokenRewarded);
         }
         
         // count rewarded tokens
@@ -238,7 +239,7 @@ contract OUROStaking is Ownable {
                                     
             // align to mint hard cap
             if (TokenRewarded + mintedReward > TokenRewardHardCap) {
-                mintedReward = (TokenRewarded + mintedReward).sub(TokenRewardHardCap);
+                mintedReward = TokenRewardHardCap.sub(TokenRewarded);
             }
         }
         
