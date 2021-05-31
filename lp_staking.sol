@@ -16,7 +16,7 @@ contract LPStaking is Ownable {
     uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
     
     IERC20 public AssetContract; // the asset to stake
-    IOGSToken public OGSContract; // the OGS token contract
+    address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
 
     mapping (address => uint256) private _balances; // tracking staker's value
     mapping (address => uint256) internal _rewardBalance; // tracking staker's claimable reward tokens
@@ -41,9 +41,8 @@ contract LPStaking is Ownable {
      *
      * ======================================================================================
      */
-    constructor(IOGSToken ogsContract, IERC20 assetContract) public {
+    constructor(IERC20 assetContract) public {
         AssetContract = assetContract; 
-        OGSContract = ogsContract;
     }
         
     /**
@@ -90,7 +89,7 @@ contract LPStaking is Ownable {
         delete _rewardBalance[msg.sender]; // zero reward balance
 
         // mint reward to sender
-        OGSContract.mint(msg.sender, amountReward);
+        IOGSToken(ogsContract).mint(msg.sender, amountReward);
     }
     
     /**

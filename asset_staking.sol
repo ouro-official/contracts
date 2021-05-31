@@ -17,11 +17,10 @@ contract AssetStaking is Ownable {
     uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
     
     address public AssetContract; // the asset to stake
-    
-    address public OUROContract; // the OURO token contract
-    address public OGSContract; // the OGS token contract
     address public immutable vTokenAddress; // venus vToken Address
     
+    address public constant ouroContract = 0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628;
+    address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant ouroReserveAddress = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
@@ -67,21 +66,20 @@ contract AssetStaking is Ownable {
      * ======================================================================================
      */
 
-    constructor(address ogsContract, address assetContract, address vTokenAddress_) public {
+    constructor(address assetContract, address vTokenAddress_) public {
         if (address(assetContract) == router.WETH()) {
             isNativeToken = true;
         }
         
         // set addresses
         AssetContract = assetContract; 
-        OGSContract = ogsContract;
         vTokenAddress = vTokenAddress_;
         
         venusMarkets.push(vTokenAddress_);
         IVenusDistribution(unitroller).enterMarkets(venusMarkets);
         
         // approve OGS to router
-        IERC20(OGSContract).safeApprove(address(router), MAX_UINT256); 
+        IERC20(ogsContract).safeApprove(address(router), MAX_UINT256); 
 
         // approve asset to OURO reserve
         IERC20(AssetContract).safeApprove(ouroReserveAddress, MAX_UINT256); 
@@ -98,8 +96,8 @@ contract AssetStaking is Ownable {
      */
     function resetAllowances() external onlyOwner {
         // re-approve OGS to router
-        IERC20(OGSContract).safeApprove(address(router), 0); 
-        IERC20(OGSContract).safeIncreaseAllowance(address(router), MAX_UINT256);
+        IERC20(ogsContract).safeApprove(address(router), 0); 
+        IERC20(ogsContract).safeIncreaseAllowance(address(router), MAX_UINT256);
         
         // re-approve asset to OURO reserve
         IERC20(AssetContract).safeApprove(ouroReserveAddress, 0); 
@@ -162,7 +160,7 @@ contract AssetStaking is Ownable {
         delete _ogsRewardBalance[msg.sender]; // zero reward balance
 
         // mint OGS reward to sender
-        IOGSToken(OGSContract).mint(msg.sender, amountReward);
+        IOGSToken(ogsContract).mint(msg.sender, amountReward);
     }
     
     /**
@@ -177,7 +175,7 @@ contract AssetStaking is Ownable {
         delete _ouroRewardBalance[msg.sender]; // zero reward balance
 
         // mint OGS reward to sender
-        IERC20(OUROContract).safeTransfer(msg.sender, amountReward);
+        IERC20(ouroContract).safeTransfer(msg.sender, amountReward);
     }
 
     /**
@@ -312,7 +310,7 @@ contract AssetStaking is Ownable {
         }
         
         // step 3. exchange above 2 types of revenue to OURO
-        uint256 currentOUROBalance = IERC20(OUROContract).balanceOf(address(this));
+        uint256 currentOUROBalance = IERC20(ouroContract).balanceOf(address(this));
         uint256 totalRevenue;
         if (isNativeToken) {
             totalRevenue = address(this).balance;
@@ -329,7 +327,7 @@ contract AssetStaking is Ownable {
         }
         
         // step 4. compute diff for new ouro and set share based on current stakers pro-rata
-        uint256 newMintedOuro = IERC20(OUROContract).balanceOf(address(this))
+        uint256 newMintedOuro = IERC20(ouroContract).balanceOf(address(this))
                                             .sub(currentOUROBalance);
                 
         uint roundShareOURO = newMintedOuro.mul(SHARE_MULTIPLIER) // avert underflow
