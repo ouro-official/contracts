@@ -4,6 +4,10 @@ pragma solidity 0.6.12;
 
 import "./library.sol";
 
+interface IOUROVesting {
+    function vest(address account, uint256 amount) external;
+}
+
 /**
  * @dev OURO Staking contract
  */
@@ -94,7 +98,7 @@ contract OUROStaking is Ownable {
         delete _rewardBalance[msg.sender]; // zero reward balance
 
         // vest reward to sender
-        OUROVesting(vestingContract).vest(msg.sender, amountReward);
+        IOUROVesting(vestingContract).vest(msg.sender, amountReward);
 
         // log
         emit RewardVested(msg.sender, amountReward);
