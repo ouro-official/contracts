@@ -146,6 +146,9 @@ contract AssetStaking is Ownable {
         
         // supply the asset to venus
         _supply(amount);
+        
+        // log
+        emit Deposit(msg.sender, amount);
     }
     
     /**
@@ -161,6 +164,9 @@ contract AssetStaking is Ownable {
 
         // mint OGS reward to sender
         IOGSToken(ogsContract).mint(msg.sender, amountReward);
+        
+        // log
+        emit OGSClaimed(msg.sender, amountReward);
     }
     
     /**
@@ -176,6 +182,9 @@ contract AssetStaking is Ownable {
 
         // mint OGS reward to sender
         IERC20(ouroContract).safeTransfer(msg.sender, amountReward);
+        
+        // log
+        emit OUROClaimed(msg.sender, amountReward);
     }
 
     /**
@@ -193,6 +202,9 @@ contract AssetStaking is Ownable {
         
         // transfer assets back
         IERC20(assetContract).safeTransfer(msg.sender, amount);
+        
+        // log
+        emit Withdraw(msg.sender, amount);
     }
 
     /**
@@ -435,4 +447,16 @@ contract AssetStaking is Ownable {
     function _removeSupply(uint256 amount) internal {
         IVToken(vTokenAddress).redeemUnderlying(amount);
     }
+    
+    /**
+     * ======================================================================================
+     * 
+     * STAKING EVENTS
+     *
+     * ======================================================================================
+     */
+     event Deposit(address account, uint256 amount);
+     event Withdraw(address account, uint256 amount);
+     event OUROClaimed(address account, uint256 amount);
+     event OGSClaimed(address account, uint256 amount);
 }
