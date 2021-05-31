@@ -15,7 +15,8 @@ contract OUROStaking is Ownable {
     
     address public constant ouroContract = 0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628; 
     address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
-    address public constant vestingContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
+    address public constant ogsPaymentAccount = 0xffA2320b690E0456862f543eC10f6c51fC0Aac99;
+    address public immutable vestingContract;
 
     mapping (address => uint256) private _balances; // tracking staker's value
     mapping (address => uint256) internal _rewardBalance; // tracking staker's claimable reward tokens
@@ -40,7 +41,10 @@ contract OUROStaking is Ownable {
      *
      * ======================================================================================
      */
-     
+    constructor() public {
+        vestingContract = address(new OUROVesting());
+    }
+    
     /**
      * @dev set block reward
      */
@@ -157,16 +161,22 @@ contract OUROStaking is Ownable {
         // settle reward share for [_lastRewardBlock, block.number]
         uint blocksToReward = block.number.sub(_lastRewardBlock);
         uint mintedReward = BlockReward.mul(blocksToReward);
+        uint penalty = IERC20(ogsContract).balanceOf(address(this));
 
         // reward share
-        uint roundShare = mintedReward.mul(SHARE_MULTIPLIER)
-                                        .div(_totalStaked);
+        uint roundShare = penalty.add(mintedReward)
+                                    .mul(SHARE_MULTIPLIER)
+                                    .div(_totalStaked);
                                 
         // mark block rewarded;
         _lastRewardBlock = block.number;
             
         // accumulate reward share
         _accShares[_currentRound] = roundShare.add(_accShares[_currentRound-1]); 
+        
+        // IMPORTANT:
+        // transfer penalty to ogsPaymentAccount after setting reward share
+        IERC20(ogsContract).safeTransfer(ogsPaymentAccount, penalty);
        
         // next round setting                                 
         _currentRound++;
@@ -194,6 +204,7 @@ contract OUROStaking is Ownable {
      * @notice sum unclaimed reward;
      */
     function checkReward(address account) external view returns(uint256 rewards) {
+        uint penalty = IERC20(ogsContract).balanceOf(address(this));
         uint accountCollateral = _balances[account];
         uint lastSettledRound = _settledRounds[account];
         
@@ -206,8 +217,9 @@ contract OUROStaking is Ownable {
             uint mintedReward = BlockReward.mul(blocksToReward);
     
             // reward share
-            newMinedShare = mintedReward.mul(SHARE_MULTIPLIER)
-                                        .div(_totalStaked);
+            newMinedShare = penalty.add(mintedReward)
+                                    .mul(SHARE_MULTIPLIER)
+                                    .div(_totalStaked);
         }
         
         return _rewardBalance[account] + (unsettledShare + newMinedShare).mul(accountCollateral)
@@ -238,17 +250,8 @@ contract OUROVesting is Ownable, IOUROVesting {
     uint256 internal constant DAY = 1 days;
     uint256 internal constant VestingPeriod = DAY * 90;
     
-    address public ouroStakingContract;
     address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
     address public constant ogsPaymentAccount = 0xffA2320b690E0456862f543eC10f6c51fC0Aac99;
-    
-    // @dev vestable group
-    mapping(address => bool) public vestableGroup;
-    
-    modifier onlyVestableGroup() {
-        require(vestableGroup[msg.sender], "not in vestable group");
-        _;
-    }
     
     // @dev vesting assets are grouped by day
     struct Round {
@@ -274,19 +277,7 @@ contract OUROVesting is Ownable, IOUROVesting {
     constructor() public {
         rounds[0].startDate = block.timestamp;
     }
-    
-    /**
-     * @dev set or remove address to vestable group
-     */
-    function setVestable(address account, bool allow) external onlyOwner {
-        vestableGroup[account] = allow;
-        if (allow) {
-            emit Vestable(account);
-        }  else {
-            emit Unvestable(account);
-        }
-    }
-    
+
     /**
      * @dev round update operation
      */
@@ -309,7 +300,7 @@ contract OUROVesting is Ownable, IOUROVesting {
     /**
      * @dev vest some OGS tokens for an account
      */
-    function vest(address account, uint256 amount) external override onlyVestableGroup {
+    function vest(address account, uint256 amount) external override onlyOwner {
         _update();
 
         rounds[currentRound].balances[account] += amount;
@@ -362,9 +353,9 @@ contract OUROVesting is Ownable, IOUROVesting {
             emit Claimed(msg.sender, rewardsToClaim);
         }
         
-        // 50% penalty token goes to OURO staking contract
+        // 50% penalty token goes to OURO staking contract(which is owner)
         if (penalty > 0) {
-            IERC20(ogsContract).safeTransferFrom(ogsPaymentAccount, ouroStakingContract, penalty);
+            IERC20(ogsContract).safeTransferFrom(ogsPaymentAccount, owner(), penalty);
             emit Penalty(msg.sender, penalty);
         }
     }
