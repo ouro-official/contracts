@@ -91,7 +91,7 @@ contract OUROStaking is Ownable {
     }
     
     /**
-     * @dev vest rewards
+     * @dev vest OGS rewards
      */
     function vestReward() external {
         // settle previous rewards
@@ -109,7 +109,7 @@ contract OUROStaking is Ownable {
     }
     
     /**
-     * @dev withdraw the staked assets
+     * @dev withdraw the staked OURO
      */
     function withdraw(uint256 amount) external {
         require(amount <= _balances[msg.sender], "balance exceeded");
