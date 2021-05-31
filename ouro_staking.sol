@@ -109,7 +109,7 @@ contract OUROVesting is Ownable, IOUROVesting {
     }
 
     /**
-     * @dev claim all rewards with penalty
+     * @dev claim all rewards with penalty(50%)
      */
     function claimAllWithPenalty() external {
         update();
@@ -118,7 +118,7 @@ contract OUROVesting is Ownable, IOUROVesting {
         uint256 penalty = lockedAmount/2;
         uint256 rewardsToClaim = balances[msg.sender].sub(penalty);
 
-        // reset balances in this month(still locked) to 0
+        // reset balances in this (still locked) to 0
         uint256 earliestVestedDate = block.timestamp - VestingPeriod;
         for (int256 i= currentRound; i>=0; i--) {
             if (rounds[i].startDate < earliestVestedDate) {
@@ -137,7 +137,7 @@ contract OUROVesting is Ownable, IOUROVesting {
             emit Claimed(msg.sender, rewardsToClaim);
         }
         
-        // 50% penalty token goes to ouro staking contract
+        // 50% penalty token goes to OURO staking contract
         if (penalty > 0) {
             IERC20(ogsContract).safeTransfer(ouroStakingContract, penalty);
             emit Penalty(msg.sender, penalty);
