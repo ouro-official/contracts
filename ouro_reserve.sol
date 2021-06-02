@@ -48,7 +48,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     
     // @dev montly OURO issuance schedule in million(1e6) OURO
     uint16 [] public issueSchedule = [10,30,50,70,100,150,200,300,400,500,650,800];
-    uint256 internal constant issueUnit = 1e18 * 1e6;
+    uint256 internal constant issueUnit = 1e6 * OURO_PRICE_UNIT;
     
     // @dev scheduled issue from
     uint256 public immutable issueFrom = block.timestamp;
@@ -94,6 +94,28 @@ contract OUROReserve is IOUROReserve,Ownable {
                 collateral.priceFeed
             );
         }
+    }
+            
+    /** 
+     * @dev get system defined OURO price
+     */
+    function getPrice() public view override returns(uint256) { return ouroPrice; }
+    
+    /**
+     * @dev get asset price in USDT(decimal=8) for 1 unit of asset
+     */
+    function getAssetPrice(AggregatorV3Interface feed) public view returns(uint256) {
+        // always align the price to USDT decimal, which is 1e18 on BSC and 1e6 on Ethereum
+        uint256 priceAlignMultiplier = USDT_UNIT / (10**uint256(feed.decimals()));
+        
+        // query price from chainlink
+        (, int latestPrice, , , ) = feed.latestRoundData();
+
+        // avert negative price
+        require (latestPrice > 0, "invalid price");
+        
+        // return price corrected to USDT decimal
+        return uint256(latestPrice).mul(priceAlignMultiplier);
     }
     
      /**
@@ -240,6 +262,14 @@ contract OUROReserve is IOUROReserve,Ownable {
         // log
         emit AllowanceReset();
     }
+         
+     /**
+      * @dev change ouro revenue distribution contract address
+      * in case of severe bug
+      */
+     function changeOURODist(address newContract) external onlyOwner {
+         ouroDistContact = IOURODist(newContract);
+     }
 
     /**
      * ======================================================================================
@@ -248,29 +278,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      *
      * ======================================================================================
      */
-        
-    /** 
-     * @dev get system defined OURO price
-     */
-    function getPrice() public view override returns(uint256) { return ouroPrice; }
-    
-    /**
-     * @dev get asset price in USDT(decimal=8) for 1 unit of asset
-     */
-    function getAssetPrice(AggregatorV3Interface feed) public view returns(uint256) {
-        // always align the price to USDT decimal, which is 1e18 on BSC and 1e6 on Ethereum
-        uint256 priceAlignMultiplier = USDT_UNIT / (10**uint256(feed.decimals()));
-        
-        // query price from chainlink
-        (, int latestPrice, , , ) = feed.latestRoundData();
 
-        // avert negative price
-        require (latestPrice > 0, "invalid price");
-        
-        // return price corrected to USDT decimal
-        return uint256(latestPrice).mul(priceAlignMultiplier);
-    }
-    
     /**
      * @dev user deposit assets and receive OURO
      * @notice users need approve() assets to this contract
@@ -881,15 +889,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      *
      * ======================================================================================
      */
-     
-     /**
-      * @dev change ouro revenue distribution contract address
-      * in case of severe bug
-      */
-     function changeOURODist(address newContract) external onlyOwner {
-         ouroDistContact = IOURODist(newContract);
-     }
-     
+
      /**
       * @dev a public function accessible to anyone to distribute revenue
       */
