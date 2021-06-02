@@ -58,7 +58,7 @@ contract OUROStaking is Ownable {
      */
     function setBlockReward(uint256 reward) external onlyOwner {
         // settle previous rewards
-        updateReward();
+        _updateReward();
         // set new block reward
         BlockReward = reward;
             
@@ -79,7 +79,7 @@ contract OUROStaking is Ownable {
      */
     function deposit(uint256 amount) external {
         // settle previous rewards
-        settleStaker(msg.sender);
+        _settleStaker(msg.sender);
         
         // transfer asset from AssetContract
         IERC20(ouroContract).safeTransferFrom(msg.sender, address(this), amount);
@@ -95,7 +95,7 @@ contract OUROStaking is Ownable {
      */
     function vestReward() external {
         // settle previous rewards
-        settleStaker(msg.sender);
+        _settleStaker(msg.sender);
         
         // reward balance modification
         uint amountReward = _rewardBalance[msg.sender];
@@ -115,7 +115,7 @@ contract OUROStaking is Ownable {
         require(amount <= _balances[msg.sender], "balance exceeded");
 
         // settle previous rewards
-        settleStaker(msg.sender);
+        _settleStaker(msg.sender);
 
         // modifiy
         _balances[msg.sender] -= amount;
@@ -131,9 +131,9 @@ contract OUROStaking is Ownable {
     /**
      * @dev settle a staker
      */
-    function settleStaker(address account) internal {
+    function _settleStaker(address account) internal {
         // update reward snapshot
-        updateReward();
+        _updateReward();
         
         // settle this account
         uint accountCollateral = _balances[account];
@@ -155,7 +155,7 @@ contract OUROStaking is Ownable {
     /**
      * @dev update accumulated block reward until current block
      */
-    function updateReward() internal {
+    function _updateReward() internal {
         // skip round changing in the same block
         if (_lastRewardBlock == block.number) {
             return;
@@ -171,7 +171,8 @@ contract OUROStaking is Ownable {
         uint mintedReward = BlockReward.mul(blocksToReward);
         uint penalty = IERC20(ogsContract).balanceOf(address(this));
         
-        // align to mint hard cap
+        // IMPORTANT!
+        // bound to mint hard cap
         if (TokenRewarded + mintedReward > TokenRewardHardCap) {
             mintedReward = TokenRewardHardCap.sub(TokenRewarded);
         }
@@ -190,7 +191,7 @@ contract OUROStaking is Ownable {
         // accumulate reward share
         _accShares[_currentRound] = roundShare.add(_accShares[_currentRound-1]); 
         
-        // IMPORTANT:
+        // IMPORTANT!
         // transfer penalty token to ogsPaymentAccount after setting reward share
         IERC20(ogsContract).safeTransfer(ogsPaymentAccount, penalty);
        
@@ -232,15 +233,15 @@ contract OUROStaking is Ownable {
             uint mintedReward = BlockReward.mul(blocksToReward);
             uint penalty = IERC20(ogsContract).balanceOf(address(this));
 
-            // reward share(including penalty)
-            newMinedShare = penalty.add(mintedReward)
-                                    .mul(SHARE_MULTIPLIER)
-                                    .div(_totalStaked);
-                                    
             // align to mint hard cap
             if (TokenRewarded + mintedReward > TokenRewardHardCap) {
                 mintedReward = TokenRewardHardCap.sub(TokenRewarded);
             }
+            
+            // reward share(including penalty)
+            newMinedShare = penalty.add(mintedReward)
+                                    .mul(SHARE_MULTIPLIER)
+                                    .div(_totalStaked);
         }
         
         return _rewardBalance[account] + (unsettledShare + newMinedShare).mul(accountCollateral)
