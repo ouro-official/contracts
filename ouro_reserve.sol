@@ -75,10 +75,15 @@ contract OUROReserve is IOUROReserve,Ownable {
      * 
      * ======================================================================================
      */
-    function getAssetBalance(address token) external view returns(uint256) {
-        return _assetsBalance[token];
-    }
+     
+    /**
+     * @dev get specific collateral balance
+     */
+    function getAssetBalance(address token) external view returns(uint256) { return _assetsBalance[token]; }
     
+    /**
+     * @dev get specific collateral info
+     */
     function getCollateral(address token) external view returns (
         address vTokenAddress,
         uint256 assetUnit, // usually 1e18
