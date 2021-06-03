@@ -21,11 +21,9 @@ contract OURODist is IOURODist, Ownable {
 
     constructor() public {
         // approve USDT
-        IERC20(usdtContract).safeApprove(address(router), 0); 
         IERC20(usdtContract).safeIncreaseAllowance(address(router), MAX_UINT256);
         
         // approve OGS
-        IERC20(ogsContract).safeApprove(address(router), 0); 
         IERC20(ogsContract).safeIncreaseAllowance(address(router), MAX_UINT256);
     }
      
@@ -37,7 +35,7 @@ contract OURODist is IOURODist, Ownable {
        IERC20(token).safeIncreaseAllowance(address(router), MAX_UINT256);
        
        // log
-       emit ResetAllowance();
+       emit ResetAllowance(token);
     }
     
     /**
@@ -45,7 +43,6 @@ contract OURODist is IOURODist, Ownable {
      */
     function revenueArrival(address token, uint256 revenueAmount) external override {
         if (IERC20(token).allowance(address(this), address(router)) == 0) {
-            IERC20(token).safeApprove(address(router), 0); 
             IERC20(token).safeIncreaseAllowance(address(router), MAX_UINT256);
         }
         
@@ -209,7 +206,7 @@ contract OURODist is IOURODist, Ownable {
      *
      * ======================================================================================
      */
-     event ResetAllowance();
+     event ResetAllowance(address token);
      event RevenuArrival(address token, uint256 amount);
      event OGSBurned(uint ogsAmount);
      event LiquidityAdded(uint ogsAmount, uint usdtAmount, uint liquidity);
