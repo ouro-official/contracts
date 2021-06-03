@@ -17,7 +17,6 @@ contract OURODist is IOURODist, Ownable {
     
     receive() external payable {}
     
-    mapping(address => bool) public hasApproved;
     uint256 constant internal MAX_UINT256 = uint256(-1);
 
     constructor() public {
@@ -45,10 +44,9 @@ contract OURODist is IOURODist, Ownable {
      * @dev notify of revenue arrival
      */
     function revenueArrival(address token, uint256 revenueAmount) external override {
-        if (!hasApproved[token]) {
+        if (IERC20(token).allowance(address(this), address(router)) == 0) {
             IERC20(token).safeApprove(address(router), 0); 
             IERC20(token).safeIncreaseAllowance(address(router), MAX_UINT256);
-            hasApproved[token] = true;
         }
         
         // 50% - OGS token buy back and burn.
