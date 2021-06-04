@@ -291,22 +291,24 @@ contract AssetStaking is Ownable {
         }
 
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
-        if (isNativeToken) {
-            router.swapExactTokensForETH(
-                xvsAmount, 
-                0, 
-                path, 
-                address(this), 
-                block.timestamp.add(600)
-            );
-        } else {
-            router.swapExactTokensForTokens(
-                xvsAmount, 
-                0, 
-                path, 
-                address(this), 
-                block.timestamp.add(600)
-            );
+        if (xvsAmount > 0 ) {
+            if (isNativeToken) {
+                router.swapExactTokensForETH(
+                    xvsAmount, 
+                    0, 
+                    path, 
+                    address(this), 
+                    block.timestamp.add(600)
+                );
+            } else {
+                router.swapExactTokensForTokens(
+                    xvsAmount, 
+                    0, 
+                    path, 
+                    address(this), 
+                    block.timestamp.add(600)
+                );
+            }
         }
 
         // step 2.check if farming has assets revenue        
