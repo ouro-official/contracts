@@ -287,8 +287,9 @@ contract OUROReserve is IOUROReserve,Ownable {
     /**
      * @dev user deposit assets and receive OURO
      * @notice users need approve() assets to this contract
+     * returns OURO minted
      */
-    function deposit(address token, uint256 amountAsset) external override payable tryRebase {
+    function deposit(address token, uint256 amountAsset) external override payable tryRebase returns (uint256 OUROMinted) {
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
@@ -332,6 +333,9 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // log
         emit Deposit(msg.sender, assetValueInOuro);
+        
+        // returns OURO minted to user
+        return assetValueInOuro;
     }
     
     /**
@@ -349,7 +353,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev user swap his OURO back to assets
      * @notice users need approve() OURO assets to this contract
      */
-    function withdraw(address token, uint256 amountAsset) external override tryRebase {
+    function withdraw(address token, uint256 amountAsset) external override tryRebase returns (uint256 OUROTaken) {
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
@@ -369,10 +373,11 @@ contract OUROReserve is IOUROReserve,Ownable {
             // sufficient asset satisfied! transfer user's equivalent OURO token to this contract directly
             uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amountAsset);
             IERC20(ouroContract).safeTransferFrom(msg.sender, address(this), assetValueInOuro);
+            OUROTaken = assetValueInOuro;
             
             // and burn OURO.
             IOUROToken(ouroContract).burn(assetValueInOuro);
-            
+
         } else {
             // drain asset balance
             _assetsBalance[address(token)] = 0;
@@ -407,11 +412,12 @@ contract OUROReserve is IOUROReserve,Ownable {
             
             // @notice user needs sufficient OURO to swap assets out
             // transfer total OURO to this contract, if user has insufficient OURO, the transaction will revert!
-            uint256 totalOuroToBurn = extraOuroRequired.add(redeemedAssetValueInOURO);
-            ouroContract.safeTransferFrom(msg.sender, address(this), totalOuroToBurn);
+            uint256 totalOuroRequired = extraOuroRequired.add(redeemedAssetValueInOURO);
+            ouroContract.safeTransferFrom(msg.sender, address(this), totalOuroRequired);
+            OUROTaken = totalOuroRequired;
                  
-            // a) OURO to burn (don't burn the swapped part)
-            ouroContract.burn(redeemedAssetValueInOURO);
+            // a) OURO to burn (the swapped part has given out)
+            IOUROToken(ouroContract).burn(redeemedAssetValueInOURO);
             
             // b) OURO to buy back assets
             // path:
@@ -447,6 +453,9 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // log withdraw
         emit Withdraw(msg.sender, address(token), amountAsset);
+        
+        // return OURO taken from user
+        return OUROTaken;
     }
     
     /**
