@@ -19,7 +19,7 @@ contract OUROStaking is Ownable {
     
     address public constant ouroContract = 0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628; 
     address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
-    address public constant ogsPaymentAccount = 0xffA2320b690E0456862f543eC10f6c51fC0Aac99;
+    address public constant ogsPaymentAccount = 0x1Ee6c29c5654705B122cc867D09b250603b9f93d;
     address public immutable vestingContract;
 
     mapping (address => uint256) private _balances; // tracking staker's value
@@ -164,7 +164,7 @@ contract OUROStaking is Ownable {
         // postpone rewarding if there is none staker
         if (_totalStaked == 0) {
             return;
-        }
+        } 
 
         // settle reward share for [_lastRewardBlock, block.number]
         uint blocksToReward = block.number.sub(_lastRewardBlock);
@@ -227,7 +227,7 @@ contract OUROStaking is Ownable {
         // reward = settled rewards + unsettled rewards + newMined rewards
         uint unsettledShare = _accShares[_currentRound-1].sub(_accShares[lastSettledRound]);
         
-        uint newMinedShare;
+        uint newShare;
         if (_totalStaked > 0) {
             uint blocksToReward = block.number.sub(_lastRewardBlock);
             uint mintedReward = BlockReward.mul(blocksToReward);
@@ -239,12 +239,12 @@ contract OUROStaking is Ownable {
             }
             
             // reward share(including penalty)
-            newMinedShare = penalty.add(mintedReward)
+            newShare = penalty.add(mintedReward)
                                     .mul(SHARE_MULTIPLIER)
                                     .div(_totalStaked);
         }
         
-        return _rewardBalance[account] + (unsettledShare + newMinedShare).mul(accountCollateral)
+        return _rewardBalance[account] + (unsettledShare + newShare).mul(accountCollateral)
                                             .div(SHARE_MULTIPLIER);  // remember to div by SHARE_MULTIPLIER;
     }
     
