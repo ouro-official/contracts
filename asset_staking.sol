@@ -186,7 +186,7 @@ contract AssetStaking is Ownable {
         uint amountReward = _ouroRewardBalance[msg.sender];
         delete _ouroRewardBalance[msg.sender]; // zero reward balance
 
-        // mint OGS reward to sender
+        // transfer OURO to sender
         IERC20(ouroContract).safeTransfer(msg.sender, amountReward);
         
         // log
