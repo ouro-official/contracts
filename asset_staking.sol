@@ -77,9 +77,6 @@ contract AssetStaking is Ownable {
         
         venusMarkets.push(vTokenAddress_);
         IVenusDistribution(unitroller).enterMarkets(venusMarkets);
-        
-        // approve OGS to router
-        IERC20(ogsContract).safeApprove(address(router), MAX_UINT256); 
 
         // approve asset to OURO reserve
         IERC20(assetContract).safeApprove(ouroReserveAddress, MAX_UINT256); 
@@ -95,9 +92,6 @@ contract AssetStaking is Ownable {
      * @dev reset allowances
      */
     function resetAllowances() external onlyOwner {
-        // re-approve OGS to router
-        IERC20(ogsContract).safeApprove(address(router), 0); 
-        IERC20(ogsContract).safeIncreaseAllowance(address(router), MAX_UINT256);
         
         // re-approve asset to OURO reserve
         IERC20(assetContract).safeApprove(ouroReserveAddress, 0); 
