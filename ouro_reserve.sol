@@ -15,7 +15,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     using SafeERC20 for IOUROToken;
     using SafeERC20 for IOGSToken;
     
-    /**
+    /** 
      * ======================================================================================
      * 
      * SHARED SETTINGS
@@ -67,6 +67,10 @@ contract OUROReserve is IOUROReserve,Ownable {
     
     // a mapping to track the balance of assets;
     mapping (address => uint256) private _assetsBalance;
+    
+    // whitelist for deposit assets 
+    bool public whiteListEnabled;
+    mapping (address => bool) private _whitelist;
     
     /**
      * ======================================================================================
@@ -139,6 +143,14 @@ contract OUROReserve is IOUROReserve,Ownable {
             rebase();
         }
         _;    
+    }
+    
+    // check whitelist
+    modifier checkWhiteList() {
+        if (whiteListEnabled) {
+            require(_whitelist[msg.sender],"not in whitelist");
+        }
+        _;
     }
     
     constructor() public {
@@ -275,7 +287,21 @@ contract OUROReserve is IOUROReserve,Ownable {
      function changeOURODist(address newContract) external onlyOwner {
          ouroDistContact = IOURODist(newContract);
      }
-
+    
+    /**
+     * @dev toggle deposit whitelist enabled
+     */
+    function toggleWhiteList() external onlyOwner {
+        whiteListEnabled = whiteListEnabled?false:true;
+    }
+    
+    /**
+     * @dev set to whiteist
+     */
+    function setToWhiteList(address account, bool allow) external onlyOwner {
+        _whitelist[account] = allow;
+    }
+    
     /**
      * ======================================================================================
      * 
@@ -289,7 +315,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @notice users need approve() assets to this contract
      * returns OURO minted
      */
-    function deposit(address token, uint256 amountAsset) external override payable tryRebase returns (uint256 OUROMinted) {
+    function deposit(address token, uint256 amountAsset) external override payable tryRebase checkWhiteList returns (uint256 OUROMinted) {
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
