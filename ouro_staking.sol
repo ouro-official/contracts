@@ -81,10 +81,12 @@ contract OUROStaking is Ownable {
         // settle previous rewards
         _settleStaker(msg.sender);
         
-        // transfer asset from AssetContract
-        IERC20(ouroContract).safeTransferFrom(msg.sender, address(this), amount);
+        // modifiy
         _balances[msg.sender] += amount;
         _totalStaked += amount;
+        
+        // transfer asset from AssetContract
+        IERC20(ouroContract).safeTransferFrom(msg.sender, address(this), amount);
         
         // log
         emit Deposit(msg.sender, amount);

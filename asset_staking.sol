@@ -67,6 +67,8 @@ contract AssetStaking is Ownable {
      */
 
     constructor(address assetContract_, address vTokenAddress_) public {
+        require(assetContract_ != address(0), "constructor： assetContract_ is zero address");
+        
         if (assetContract == router.WETH()) {
             isNativeToken = true;
         }
@@ -139,11 +141,13 @@ contract AssetStaking is Ownable {
         // settle previous rewards
         settleStaker(msg.sender);
         
-        // transfer asset from AssetContract
-        IERC20(assetContract).safeTransferFrom(msg.sender, address(this), amount);
+        // modify balance
         _balances[msg.sender] += amount;
         _totalStaked += amount;
         
+        // transfer asset from AssetContract
+        IERC20(assetContract).safeTransferFrom(msg.sender, address(this), amount);
+
         // supply the asset to venus
         _supply(amount);
         

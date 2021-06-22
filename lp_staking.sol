@@ -41,6 +41,8 @@ contract LPStaking is Ownable {
      * ======================================================================================
      */
     constructor(address assetContract_) public {
+        require(assetContract_ != address(0), "constructor： assetContract_ is zero address");
+
         assetContract = assetContract_; 
     }
         
@@ -72,10 +74,12 @@ contract LPStaking is Ownable {
         // settle previous rewards
         settleStaker(msg.sender);
         
-        // transfer asset from AssetContract
-        IERC20(assetContract).safeTransferFrom(msg.sender, address(this), amount);
+        // modifiy
         _balances[msg.sender] += amount;
         _totalStaked += amount;
+        
+        // transfer asset from AssetContract
+        IERC20(assetContract).safeTransferFrom(msg.sender, address(this), amount);
         
         // log
         emit Deposit(msg.sender, amount);

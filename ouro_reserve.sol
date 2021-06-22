@@ -114,9 +114,6 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev get asset price in USDT(decimal=8) for 1 unit of asset
      */
     function getAssetPrice(AggregatorV3Interface feed) public view returns(uint256) {
-        // always align the price to USDT decimal, which is 1e18 on BSC and 1e6 on Ethereum
-        uint256 priceAlignMultiplier = USDT_UNIT / (10**uint256(feed.decimals()));
-        
         // query price from chainlink
         (, int latestPrice, , , ) = feed.latestRoundData();
 
@@ -124,7 +121,10 @@ contract OUROReserve is IOUROReserve,Ownable {
         require (latestPrice > 0, "invalid price");
         
         // return price corrected to USDT decimal
-        return uint256(latestPrice).mul(priceAlignMultiplier);
+        // always align the price to USDT decimal, which is 1e18 on BSC and 1e6 on Ethereum
+        return uint256(latestPrice)
+                        .mul(USDT_UNIT)
+                        .div(10**uint256(feed.decimals()));
     }
     
      /**
