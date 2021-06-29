@@ -717,24 +717,27 @@ contract OUROReserve is IOUROReserve,Ownable {
             uint256 slotBuyBackValue = slotValue.mul(valueDeviates)
                                                 .div(totalCollateralValueDeviated);
                                 
-            // execute different buyback operations
-            if (isExcessive) {
-                _buybackOGS(
-                    collateral.token, 
-                    collateral.vTokenAddress,
-                    collateral.assetUnit,
-                    collateral.priceFeed,
-                    slotBuyBackValue
-                );
-            } else {
-                _buybackCollateral(
-                    collateral.token, 
-                    collateral.vTokenAddress,
-                    collateral.assetUnit,
-                    collateral.priceFeed,
-                    slotBuyBackValue
-                );
-            }
+			// non zero check
+			if (slotBuyBackValue > 0) {
+                // execute different buyback operations
+                if (isExcessive) {
+                    _buybackOGS(
+                        collateral.token, 
+                        collateral.vTokenAddress,
+                        collateral.assetUnit,
+                        collateral.priceFeed,
+                        slotBuyBackValue
+                    );
+                } else {
+                    _buybackCollateral(
+                        collateral.token, 
+                        collateral.vTokenAddress,
+                        collateral.assetUnit,
+                        collateral.priceFeed,
+                        slotBuyBackValue
+                    );
+                }
+    		}
             
             // update the collateral price to lastest
             collateral.lastPrice = newPrice;
