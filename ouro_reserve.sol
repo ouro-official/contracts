@@ -962,18 +962,20 @@ contract OUROReserve is IOUROReserve,Ownable {
         // swap all XVS to OGS
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
 
-        // swap OGS out
-        uint [] memory amounts = router.swapExactTokensForTokens(
-            xvsAmount,
-            0, 
-            path, 
-            address(this), 
-            block.timestamp.add(600)
-        );
-        uint256 ogsAmountOut = amounts[amounts.length - 1];
-
-        // burn OGS
-        ogsContract.burn(ogsAmountOut);
+        if (xvsAmount > 0) {
+            // swap OGS out
+            uint [] memory amounts = router.swapExactTokensForTokens(
+                xvsAmount,
+                0, 
+                path, 
+                address(this), 
+                block.timestamp.add(600)
+            );
+            uint256 ogsAmountOut = amounts[amounts.length - 1];
+    
+            // burn OGS
+            ogsContract.burn(ogsAmountOut);
+        }
                 
         // log
         emit XVSDist(xvsAmount);
