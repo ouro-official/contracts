@@ -13,6 +13,8 @@ import "library.sol";
 contract AssetStaking is Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
+    using Address for address payable;
+
     
     uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
     
@@ -22,7 +24,7 @@ contract AssetStaking is Ownable {
     address public constant ouroContract = 0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628;
     address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
-    address public constant ouroReserveAddress = 0xfD36E2c2a6789Db23113685031d7F16329158384;
+    address public constant ouroReserveAddress = 0x595a6bae4D5f95F3cC27EBD6D30E5715F3c845FB;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
     address public constant usdtContract = 0x55d398326f99059fF775485246999027B3197955;
 
@@ -137,7 +139,11 @@ contract AssetStaking is Ownable {
     /**
      * @dev deposit assets
      */
-    function deposit(uint256 amount) external {
+    function deposit(uint256 amount) external payable {
+        if (isNativeToken) {
+            amount = msg.value;
+        }
+        
         // settle previous rewards
         settleStaker(msg.sender);
         
@@ -146,7 +152,9 @@ contract AssetStaking is Ownable {
         _totalStaked += amount;
         
         // transfer asset from AssetContract
-        IERC20(assetContract).safeTransferFrom(msg.sender, address(this), amount);
+        if (!isNativeToken) {
+            IERC20(assetContract).safeTransferFrom(msg.sender, address(this), amount);
+        }
 
         // supply the asset to venus
         _supply(amount);
@@ -205,7 +213,11 @@ contract AssetStaking is Ownable {
         _totalStaked -= amount;
         
         // transfer assets back
-        IERC20(assetContract).safeTransfer(msg.sender, amount);
+        if (!isNativeToken) {
+            IERC20(assetContract).safeTransfer(msg.sender, amount);
+        } else {
+            msg.sender.sendValue(amount);
+        }
         
         // log
         emit Withdraw(msg.sender, amount);
