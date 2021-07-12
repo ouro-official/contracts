@@ -71,7 +71,7 @@ contract AssetStaking is Ownable {
     constructor(address assetContract_, address vTokenAddress_) public {
         require(assetContract_ != address(0), "constructor： assetContract_ is zero address");
         
-        if (assetContract == router.WETH()) {
+        if (assetContract_ == router.WETH()) {
             isNativeToken = true;
         }
         
@@ -446,7 +446,7 @@ contract AssetStaking is Ownable {
      *
      * ======================================================================================
      */
-    bool public isNativeToken = false;
+    bool public isNativeToken;
     
     /**
      * @dev supply assets to venus and get vToken
