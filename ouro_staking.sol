@@ -267,7 +267,7 @@ contract OUROStaking is Ownable {
 /**
  * @dev OURO Vesting contract
  */
-contract OUROVesting is Ownable {
+contract OUROVesting is Ownable, IOUROVesting {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
 
@@ -324,7 +324,7 @@ contract OUROVesting is Ownable {
     /**
      * @dev vest some OGS tokens for an account
      */
-    function vest(address account, uint256 amount) external onlyOwner {
+    function vest(address account, uint256 amount) external override onlyOwner {
         _update();
 
         rounds[currentRound].balances[account] += amount;
