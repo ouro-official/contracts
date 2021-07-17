@@ -284,6 +284,14 @@ contract AssetStaking is Ownable {
      * this function should be implemented as idempotent way
      */
     function _updateOuroReward() internal {
+        // step 0. record current asset balance(which users deposit)
+        uint256 assetBalance;
+        if (isNativeToken) {
+            assetBalance = address(this).balance;
+        } else {
+            assetBalance = IERC20(assetContract).balanceOf(address(this));
+        }
+        
         // setp 1. settle venus XVS reward
         IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
         
@@ -341,20 +349,23 @@ contract AssetStaking is Ownable {
         
         // step 3. exchange above 2 types of revenue to OURO
         uint256 currentOUROBalance = IERC20(ouroContract).balanceOf(address(this));
-        uint256 totalRevenue;
+        uint256 currentAsset;
         if (isNativeToken) {
-            totalRevenue = address(this).balance;
+            currentAsset = address(this).balance;
         } else {
-            totalRevenue = IERC20(assetContract).balanceOf(address(this));
+            currentAsset = IERC20(assetContract).balanceOf(address(this));
         }
         
-        if (totalRevenue > 0) {
+        // === THE DIFF IS THE FARMING REVENUE TO SWAP TO OURO ===
+        if (currentAsset > assetBalance) {
+            uint256 diff = currentAsset.sub(assetBalance);
             if (isNativeToken) {
-                IOUROReserve(ouroReserveAddress).deposit{value:totalRevenue}(assetContract, 0);
+                IOUROReserve(ouroReserveAddress).deposit{value:diff}(assetContract, 0);
             } else {
-                IOUROReserve(ouroReserveAddress).deposit(assetContract, totalRevenue);
+                IOUROReserve(ouroReserveAddress).deposit(assetContract, diff);
             }
         }
+        // === END THE DIFF IS THE FARMING REVENUE TO SWAP TO OURO ===
         
         // step 4. compute diff for new ouro and set share based on current stakers pro-rata
         uint256 newMintedOuro = IERC20(ouroContract).balanceOf(address(this))
