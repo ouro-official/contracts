@@ -817,7 +817,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         IERC20(usdtContract).safeTransfer(lastResortFund, amountUSDT);
         
         // allocation b)
-        // conduct a ogs burn(90%)
+        // conduct a ogs burn
         // the path to find how many OGS can be swapped
         // path:
         //  exact collateral -> USDT -> ??? OGS
