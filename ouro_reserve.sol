@@ -761,8 +761,8 @@ contract OUROReserve is IOUROReserve,Ownable {
     
     /**
      * @dev buy back OGS with collateral
-     * 1. to form an insurance fund (10%)
-     * 2. conduct a ogs burn(90%)
+     * 1. to form an insurance fund (50%)
+     * 2. conduct a ogs burn(50%)
      */
     function _buybackOGS(address token ,address vTokenAddress, uint256 assetUnit, AggregatorV3Interface priceFeed, uint256 slotValue) internal {
         uint256 collateralToRedeem = slotValue
@@ -781,7 +781,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         }
 
         // split assets allocation
-        uint256 assetToInsuranceFund = redeemedAmount.mul(10).div(100);
+        uint256 assetToInsuranceFund = redeemedAmount.mul(50).div(100);
         uint256 assetToBuyBackOGS = redeemedAmount.sub(assetToInsuranceFund);
         
         // allocation a)
