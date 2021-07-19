@@ -67,7 +67,8 @@ contract AssetStaking is Ownable {
      *
      * ======================================================================================
      */
-
+    receive() external payable {}
+    
     constructor(address assetContract_, address vTokenAddress_) public {
         require(assetContract_ != address(0), "constructor： assetContract_ is zero address");
         
