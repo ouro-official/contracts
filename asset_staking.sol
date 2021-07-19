@@ -213,6 +213,9 @@ contract AssetStaking is Ownable {
         _balances[msg.sender] -= amount;
         _totalStaked -= amount;
         
+        // redeem supply from venus
+        _removeSupply(amount);
+        
         // transfer assets back
         if (!isNativeToken) {
             IERC20(assetContract).safeTransfer(msg.sender, amount);
