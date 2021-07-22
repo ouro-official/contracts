@@ -3,7 +3,7 @@
 
 pragma solidity ^0.6.12;
 
-import "library.sol";
+import "./library.sol";
 
 /**
  * @dev LP staking related to OURO/xxx pair
