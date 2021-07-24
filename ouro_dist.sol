@@ -42,6 +42,7 @@ contract OURODist is IOURODist, Ownable {
      * @dev notify of revenue arrival
      */
     function revenueArrival(address token, uint256 revenueAmount) external override {
+        // lazy approve
         if (IERC20(token).allowance(address(this), address(router)) == 0) {
             IERC20(token).safeIncreaseAllowance(address(router), MAX_UINT256);
         }
@@ -77,36 +78,38 @@ contract OURODist is IOURODist, Ownable {
            path[2] = address(ogsContract);
        }
 
-       uint [] memory amounts;
-       // the path to swap OGS out
-       // path:
-       // exact collateral -> USDT -> OGS
-       if (token == WETH) {
+        // swap & burn
+        if (assetAmount > 0) {
+            uint [] memory amounts;
+            // the path to swap OGS out
+            // path:
+            // exact collateral -> USDT -> OGS
+            if (token == WETH) {
+                // swap OGS out with native assets to THIS contract
+                amounts = router.swapExactETHForTokens{value:assetAmount}(
+                   0, 
+                   path, 
+                   address(this), 
+                   block.timestamp.add(600)
+                );
+               
+            } else {
+               // swap OGS out to THIS contract
+                amounts = router.swapExactTokensForTokens(
+                   assetAmount, 
+                   0,
+                   path, 
+                   address(this), 
+                   block.timestamp.add(600)
+               );
+            }
+    
+            // burn OGS the actual swapped out
+            ogsContract.burn(amounts[amounts.length - 1]);
            
-           // swap OGS out with native assets to THIS contract
-           amounts = router.swapExactETHForTokens{value:assetAmount}(
-               0, 
-               path, 
-               address(this), 
-               block.timestamp.add(600)
-           );
-           
-       } else {
-           // swap OGS out to THIS contract
-           amounts = router.swapExactTokensForTokens(
-               assetAmount, 
-               0,
-               path, 
-               address(this), 
-               block.timestamp.add(600)
-           );
-       }
-
-       // burn OGS the actual swapped out
-       ogsContract.burn(amounts[amounts.length - 1]);
-       
-       // log
-       emit OGSBurned(amounts[amounts.length - 1]);
+            // log
+            emit OGSBurned(amounts[amounts.length - 1]);
+        }
     }
 
      /**
@@ -128,25 +131,28 @@ contract OURODist is IOURODist, Ownable {
        
        // half of the asset to buy OGS
        uint256 assetToBuyOGS = assetAmount.div(2);
-           
-       // the path to swap OGS out
-       if (token == WETH) {
-           router.swapExactETHForTokens{value:assetToBuyOGS}(
-               0, 
-               path, 
-               address(this), 
-               block.timestamp.add(swapDelay)
-           );
-           
-       } else {
-           router.swapExactTokensForTokens(
-               assetToBuyOGS, 
-               0, 
-               path, 
-               address(this), 
-               block.timestamp.add(swapDelay)
-           );
-       }
+  
+        // swap & burn
+        if (assetToBuyOGS > 0) {         
+           // the path to swap OGS out
+            if (token == WETH) {
+                router.swapExactETHForTokens{value:assetToBuyOGS}(
+                   0, 
+                   path, 
+                   address(this), 
+                   block.timestamp.add(swapDelay)
+                );
+               
+            } else {
+                router.swapExactTokensForTokens(
+                   assetToBuyOGS, 
+                   0, 
+                   path, 
+                   address(this), 
+                   block.timestamp.add(swapDelay)
+                );
+            }
+        }
 
        // the rest revenue will be used to buy USDT
        if (token != usdtContract) {
@@ -157,25 +163,27 @@ contract OURODist is IOURODist, Ownable {
            // half of the asset to buy USDT
            uint256 assetToBuyUSDT = assetAmount.sub(assetToBuyOGS);
            
-           // the path to swap USDT out
-           // path:
-           //  collateral -> USDT
-           if (token == WETH) {
-               router.swapExactETHForTokens{value:assetToBuyUSDT}(
-                   0, 
-                   path, 
-                   address(this), 
-                   block.timestamp.add(swapDelay)
-               );
-               
-           } else {
-               router.swapExactTokensForTokens(
-                   assetToBuyUSDT, 
-                   0, 
-                   path, 
-                   address(this), 
-                   block.timestamp.add(swapDelay)
-               );
+           if (assetAmount > 0) {
+                // the path to swap USDT out
+                // path:
+                //  collateral -> USDT
+                if (token == WETH) {
+                    router.swapExactETHForTokens{value:assetToBuyUSDT}(
+                       0, 
+                       path, 
+                       address(this), 
+                       block.timestamp.add(swapDelay)
+                    );
+                   
+                } else {
+                    router.swapExactTokensForTokens(
+                       assetToBuyUSDT, 
+                       0, 
+                       path, 
+                       address(this), 
+                       block.timestamp.add(swapDelay)
+                    );
+                }
            }
         }
         
@@ -184,19 +192,21 @@ contract OURODist is IOURODist, Ownable {
        uint256 token0Amt = IERC20(ogsContract).balanceOf(address(this));
        uint256 token1Amt = IERC20(usdtContract).balanceOf(address(this));
        
-       (uint amountA, uint amountB, uint liquidity) = router.addLiquidity(
-           address(ogsContract),
-           usdtContract,
-           token0Amt,
-           token1Amt,
-           0,
-           0,
-           address(this),
-           block.timestamp.add(swapDelay)
-       );
-       
-       // log
-       emit LiquidityAdded(amountA, amountB, liquidity);
+       if (token0Amt > 0 && token1Amt > 0) {
+           (uint amountA, uint amountB, uint liquidity) = router.addLiquidity(
+               address(ogsContract),
+               usdtContract,
+               token0Amt,
+               token1Amt,
+               0,
+               0,
+               address(this),
+               block.timestamp.add(swapDelay)
+           );
+           
+           // log
+           emit LiquidityAdded(amountA, amountB, liquidity);
+       }
     }
     
     /**

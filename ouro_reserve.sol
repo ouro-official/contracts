@@ -786,29 +786,31 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // allocation a)
         // swap to USDT to form last resort insurance fund (10%)
-        if (token != usdtContract) {
-            address[] memory path;
-            path = new address[](2);
-            path[0] = token;
-            path[1] = usdtContract;
-            
-            // swap USDT out
-            if (token == WETH) {
-                router.swapExactETHForTokens{value:assetToInsuranceFund}(
-                    0, 
-                    path, 
-                    address(this), 
-                    block.timestamp.add(600)
-                );
+        if (assetToInsuranceFund >0) {
+            if (token != usdtContract) {
+                address[] memory path;
+                path = new address[](2);
+                path[0] = token;
+                path[1] = usdtContract;
                 
-            } else {
-                router.swapExactTokensForTokens(
-                    assetToInsuranceFund,
-                    0, 
-                    path, 
-                    address(this), 
-                    block.timestamp.add(600)
-                );
+                // swap USDT out
+                if (token == WETH) {
+                    router.swapExactETHForTokens{value:assetToInsuranceFund}(
+                        0, 
+                        path, 
+                        address(this), 
+                        block.timestamp.add(600)
+                    );
+                    
+                } else {
+                    router.swapExactTokensForTokens(
+                        assetToInsuranceFund,
+                        0, 
+                        path, 
+                        address(this), 
+                        block.timestamp.add(600)
+                    );
+                }
             }
         }
         
@@ -835,29 +837,31 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // swap OGS out
         uint [] memory amounts;
-        if (token == WETH) {
-            amounts = router.swapExactETHForTokens{value:assetToBuyBackOGS}(
-                0, 
-                path, 
-                address(this), 
-                block.timestamp.add(600)
-            );
+        if (assetToBuyBackOGS > 0) {
+            if (token == WETH) {
+                amounts = router.swapExactETHForTokens{value:assetToBuyBackOGS}(
+                    0, 
+                    path, 
+                    address(this), 
+                    block.timestamp.add(600)
+                );
+                
+            } else {
+                amounts =router.swapExactTokensForTokens(
+                    assetToBuyBackOGS,
+                    0, 
+                    path, 
+                    address(this), 
+                    block.timestamp.add(600)
+                );
+            }
             
-        } else {
-            amounts =router.swapExactTokensForTokens(
-                assetToBuyBackOGS,
-                0, 
-                path, 
-                address(this), 
-                block.timestamp.add(600)
-            );
+            // burn OGS
+            ogsContract.burn(amounts[amounts.length - 1]);
+                    
+            // log
+            emit OGSBurned(amounts[amounts.length - 1]);
         }
-        
-        // burn OGS
-        ogsContract.burn(amounts[amounts.length - 1]);
-        
-        // log
-        emit OGSBurned(amounts[amounts.length - 1]);
     }
     
     /**
@@ -884,45 +888,47 @@ contract OUROReserve is IOUROReserve,Ownable {
             path[2] = token;
         }
         
-        // calc amount OGS required to swap out given collateral
-        uint [] memory amounts = router.getAmountsIn(collateralToBuyBack, path);
-        uint256 ogsRequired = amounts[0];
-                    
-        // mint OGS to this contract to buy back collateral           
-        // NOTE: ogs contract MUST authorized THIS contract the privilege to mint
-        ogsContract.mint(address(this), ogsRequired);
-
-        // the path to swap collateral out
-        // path:
-        //  (exact OGS) -> USDT -> collateral
-        if (token == WETH) {
-            amounts = router.swapExactTokensForETH(
-                ogsRequired,
-                0,
-                path, 
-                address(this), 
-                block.timestamp.add(600)
-            );
-        } else {
-            amounts = router.swapExactTokensForTokens(
-                ogsRequired,
-                0, 
-                path, 
-                address(this), 
-                block.timestamp.add(600)
-            );
+        if (collateralToBuyBack > 0) {
+            // calc amount OGS required to swap out given collateral
+            uint [] memory amounts = router.getAmountsIn(collateralToBuyBack, path);
+            uint256 ogsRequired = amounts[0];
+                        
+            // mint OGS to this contract to buy back collateral           
+            // NOTE: ogs contract MUST authorized THIS contract the privilege to mint
+            ogsContract.mint(address(this), ogsRequired);
+    
+            // the path to swap collateral out
+            // path:
+            //  (exact OGS) -> USDT -> collateral
+            if (token == WETH) {
+                amounts = router.swapExactTokensForETH(
+                    ogsRequired,
+                    0,
+                    path, 
+                    address(this), 
+                    block.timestamp.add(600)
+                );
+            } else {
+                amounts = router.swapExactTokensForTokens(
+                    ogsRequired,
+                    0, 
+                    path, 
+                    address(this), 
+                    block.timestamp.add(600)
+                );
+            }
+            
+            uint256 swappedOut = amounts[amounts.length - 1];
+            
+            // as we brought back the collateral, farm the asset
+            _supply(token, vTokenAddress, swappedOut);
+            
+            // accounting
+            _assetsBalance[token] = _assetsBalance[token].add(swappedOut);
+            
+            // log
+            emit CollateralBroughtBack(token, swappedOut);
         }
-        
-        uint256 swappedOut = amounts[amounts.length - 1];
-        
-        // as we brought back the collateral, farm the asset
-        _supply(token, vTokenAddress, swappedOut);
-        
-        // accounting
-        _assetsBalance[token] = _assetsBalance[token].add(swappedOut);
-        
-        // log
-        emit CollateralBroughtBack(token, swappedOut);
     }
     
     /**
