@@ -24,7 +24,7 @@ contract AssetStaking is Ownable {
     address public constant ouroContract = 0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628;
     address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
-    address public constant ouroReserveAddress = 0x595a6bae4D5f95F3cC27EBD6D30E5715F3c845FB;
+    address public constant ouroReserveAddress = 0xf1a17929F6fbd8374B215f555520Dd3d21f9C02e;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
     address public constant usdtContract = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
 
