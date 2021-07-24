@@ -26,7 +26,7 @@ contract AssetStaking is Ownable {
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant ouroReserveAddress = 0x595a6bae4D5f95F3cC27EBD6D30E5715F3c845FB;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
-    address public constant usdtContract = 0x55d398326f99059fF775485246999027B3197955;
+    address public constant usdtContract = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
 
     // pancake router
     IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
