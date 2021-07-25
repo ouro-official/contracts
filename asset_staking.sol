@@ -26,7 +26,7 @@ contract AssetStaking is Ownable {
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant ouroReserveAddress = 0xf1a17929F6fbd8374B215f555520Dd3d21f9C02e;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
-    address public constant usdtContract = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
+    address public constant usdtContract = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
 
     // pancake router
     IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
@@ -494,4 +494,20 @@ contract AssetStaking is Ownable {
      event OGSClaimed(address account, uint256 amount);
      event BlockRewardSet(uint256 reward);
      event AllowanceReset();
+}
+
+contract AssetStakingTest is AssetStaking {
+      constructor(address assetContract_, address vTokenAddress_) 
+      AssetStaking(assetContract_, vTokenAddress_)
+      public {
+      }
+      
+      function updateOGSReward() public {
+          _updateOGSReward();   
+      }
+    
+        function updateOuroReward() public {
+          _updateOuroReward();   
+      }
+      
 }

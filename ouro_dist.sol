@@ -8,7 +8,7 @@ contract OURODist is IOURODist, Ownable {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
     
-    address public constant usdtContract = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
+    address public constant usdtContract = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
     IOUROToken public constant ouroContract = IOUROToken(0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628);
     IOGSToken public constant ogsContract = IOGSToken(0x19F521235CaBAb5347B137f9D85e03D023Ccc76E);
     IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
