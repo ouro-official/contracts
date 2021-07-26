@@ -995,28 +995,28 @@ contract OUROReserve is IOUROReserve,Ownable {
                 (, uint liquidity,) = IVenusDistribution(unitroller).getAccountLiquidity(address(this));
             
                 // prevent zero redeeming
-                if (liquidity > 0) {
+                if (liquidity > 0 && revenue > 0) {
                     // redeem asset
                     IVToken(collateral.vTokenAddress).redeemUnderlying(revenue);
-                }
 
-                // get actual revenue redeemed
-                uint256 redeemedAmount;
-                if (collateral.token == WETH) {
-                    redeemedAmount = address(this).balance;
-                } else {
-                    redeemedAmount = IERC20(collateral.token).balanceOf(address(this));
+                    // get actual revenue redeemed
+                    uint256 redeemedAmount;
+                    if (collateral.token == WETH) {
+                        redeemedAmount = address(this).balance;
+                    } else {
+                        redeemedAmount = IERC20(collateral.token).balanceOf(address(this));
+                    }
+                    
+                    // transfer asset to ouro revenue distribution contract
+                    if (collateral.token == WETH) {
+                        payable(address(ouroDistContact)).sendValue(redeemedAmount);
+                    } else {
+                        IERC20(collateral.token).safeTransfer(address(ouroDistContact), redeemedAmount);
+                    }
+                    
+                    // notify ouro revenue contract
+                    ouroDistContact.revenueArrival(collateral.token, redeemedAmount);
                 }
-                
-                // transfer asset to ouro revenue distribution contract
-                if (collateral.token == WETH) {
-                    payable(address(ouroDistContact)).sendValue(redeemedAmount);
-                } else {
-                    IERC20(collateral.token).safeTransfer(address(ouroDistContact), redeemedAmount);
-                }
-                
-                // notify ouro revenue contract
-                ouroDistContact.revenueArrival(collateral.token, redeemedAmount);
             }
         }
      }
