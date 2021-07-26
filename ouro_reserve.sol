@@ -136,15 +136,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      */
      
     receive() external payable {}
-    
-    // try rebase for user's deposit and withdraw
-    modifier tryRebase() {
-        if (block.timestamp > lastRebaseTimestamp + rebasePeriod) {
-            rebase();
-        }
-        _;    
-    }
-    
+
     // check whitelist
     modifier checkWhiteList() {
         if (whiteListEnabled) {
@@ -379,7 +371,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev user swap his OURO back to assets
      * @notice users need approve() OURO assets to this contract
      */
-    function withdraw(address token, uint256 amountAsset) external override tryRebase returns (uint256 OUROTaken) {
+    function withdraw(address token, uint256 amountAsset) external override returns (uint256 OUROTaken) {
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
