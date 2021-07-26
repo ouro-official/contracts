@@ -347,17 +347,14 @@ contract AssetStaking is Ownable {
            
             // check liquidity
             (, uint liquidity,) = IVenusDistribution(unitroller).getAccountLiquidity(address(this));
-            
-            // the minimal one of (liquidity & asssetsRevenue) cap the amount to redeem
-            uint256 redeemAmount = liquidity<asssetsRevenue?liquidity:asssetsRevenue;
-            
+
             // prevent zero redeeming
-            if (redeemAmount > 0) {
+            if (liquidity > 0) {
                 // proceed redeeming
                 if (isNativeToken) {
-                    IVBNB(vTokenAddress).redeemUnderlying(redeemAmount);
+                    IVBNB(vTokenAddress).redeemUnderlying(asssetsRevenue);
                 } else {
-                    IVToken(vTokenAddress).redeemUnderlying(redeemAmount);
+                    IVToken(vTokenAddress).redeemUnderlying(asssetsRevenue);
                 }
             }
         }

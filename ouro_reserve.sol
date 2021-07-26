@@ -988,11 +988,18 @@ contract OUROReserve is IOUROReserve,Ownable {
             uint256 farmBalance = IVToken(collateral.vTokenAddress).balanceOfUnderlying(address(this));
             
             // revenue generated
-            if (farmBalance > _assetsBalance[collateral.token]) {
-                // redeem asset
+            if (farmBalance > _assetsBalance[collateral.token]) {        
+                // calc revenue
                 uint256 revenue = farmBalance.sub(_assetsBalance[collateral.token]);
-                IVToken(collateral.vTokenAddress).redeemUnderlying(revenue);
-                
+                // check liquidity
+                (, uint liquidity,) = IVenusDistribution(unitroller).getAccountLiquidity(address(this));
+            
+                // prevent zero redeeming
+                if (liquidity > 0) {
+                    // redeem asset
+                    IVToken(collateral.vTokenAddress).redeemUnderlying(revenue);
+                }
+
                 // get actual revenue redeemed
                 uint256 redeemedAmount;
                 if (collateral.token == WETH) {
