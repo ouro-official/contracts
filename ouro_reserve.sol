@@ -315,7 +315,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @notice users need approve() assets to this contract
      * returns OURO minted
      */
-    function deposit(address token, uint256 amountAsset) external override payable tryRebase checkWhiteList returns (uint256 OUROMinted) {
+    function deposit(address token, uint256 amountAsset) external override payable checkWhiteList returns (uint256 OUROMinted) {
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);

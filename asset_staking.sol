@@ -351,11 +351,14 @@ contract AssetStaking is Ownable {
             // the minimal one of (liquidity & asssetsRevenue) cap the amount to redeem
             uint256 redeemAmount = liquidity<asssetsRevenue?liquidity:asssetsRevenue;
             
-            // proceed redeeming
-            if (isNativeToken) {
-                IVBNB(vTokenAddress).redeemUnderlying(redeemAmount);
-            } else {
-                IVToken(vTokenAddress).redeemUnderlying(redeemAmount);
+            // prevent zero redeeming
+            if (redeemAmount > 0) {
+                // proceed redeeming
+                if (isNativeToken) {
+                    IVBNB(vTokenAddress).redeemUnderlying(redeemAmount);
+                } else {
+                    IVToken(vTokenAddress).redeemUnderlying(redeemAmount);
+                }
             }
         }
         
