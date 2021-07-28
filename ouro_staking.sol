@@ -271,11 +271,12 @@ contract OUROVesting is Ownable, IOUROVesting {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
 
-    uint256 internal constant DAY = 1 days;
+    uint256 internal constant DAY = 10; // mock to 10 days
+    //uint256 internal constant DAY = 1 days;
     uint256 internal constant VestingPeriod = DAY * 90;
     
     address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
-    address public constant ogsPaymentAccount = 0xffA2320b690E0456862f543eC10f6c51fC0Aac99;
+    address public constant ogsPaymentAccount = 0x1Ee6c29c5654705B122cc867D09b250603b9f93d;
     
     // @dev vesting assets are grouped by day
     struct Round {
