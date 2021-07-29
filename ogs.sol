@@ -94,24 +94,6 @@ contract OGSToken is ERC20, Ownable, IOGSToken {
     }
 
     /**
-     * @dev Destroys `amount` tokens from `account`, deducting from the caller's
-     * allowance.
-     *
-     * See {ERC20-_burn} and {ERC20-allowance}.
-     *
-     * Requirements:
-     *
-     * - the caller must have allowance for ``accounts``'s tokens of at least
-     * `amount`.
-     */
-    function burnFrom(address account, uint256 amount) public {
-        uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "OGS: burn amount exceeds allowance");
-
-        _approve(account, _msgSender(), decreasedAllowance);
-        _burn(account, amount);
-    }
-
-    /**
      * @dev Batch transfer amount to recipient
      * @notice that excessive gas consumption causes transaction revert
      */

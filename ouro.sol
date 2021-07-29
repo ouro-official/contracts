@@ -7,7 +7,7 @@ import "./library.sol";
 /**
  * @notice OURO token contract (ERC20)
  */
-contract OURToken is ERC20, Ownable, IOUROToken {
+contract OUROToken is ERC20, Ownable, IOUROToken {
     
     using SafeERC20 for IERC20;
     using SafeMath for uint;
@@ -91,24 +91,6 @@ contract OURToken is ERC20, Ownable, IOUROToken {
      */
     function burn(uint256 amount) public override {
         _burn(_msgSender(), amount);
-    }
-
-    /**
-     * @dev Destroys `amount` tokens from `account`, deducting from the caller's
-     * allowance.
-     *
-     * See {ERC20-_burn} and {ERC20-allowance}.
-     *
-     * Requirements:
-     *
-     * - the caller must have allowance for ``accounts``'s tokens of at least
-     * `amount`.
-     */
-    function burnFrom(address account, uint256 amount) public {
-        uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "OURO: burn amount exceeds allowance");
-
-        _approve(account, _msgSender(), decreasedAllowance);
-        _burn(account, amount);
     }
 
     /**
