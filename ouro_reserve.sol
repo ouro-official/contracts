@@ -46,9 +46,9 @@ contract OUROReserve is IOUROReserve,Ownable {
     uint256 constant internal USDT_UNIT = 1e18;
     uint256 constant internal MAX_UINT256 = uint256(-1);
     
-    // @dev montly OURO issuance schedule in million(1e6) OURO
-    uint16 [] public issueSchedule = [10,30,50,70,100,150,200,300,400,500,650,800];
-    uint256 internal constant issueUnit = 1e6 * OURO_PRICE_UNIT;
+    // @dev montly OURO issuance schedule in 100k(1e5) OURO
+    uint16 [] public issueSchedule = [1,10,30,50,70,100,150,200,300,400,500,650,800];
+    uint256 internal constant issueUnit = 1e5 * OURO_PRICE_UNIT;
     
     // @dev scheduled issue from
     uint256 public immutable issueFrom = block.timestamp;
@@ -777,7 +777,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         uint256 assetToBuyBackOGS = redeemedAmount.sub(assetToInsuranceFund);
         
         // allocation a)
-        // swap to USDT to form last resort insurance fund (10%)
+        // swap to USDT to form last resort insurance fund (50%)
         if (assetToInsuranceFund >0) {
             if (token != usdtContract) {
                 address[] memory path;
