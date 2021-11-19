@@ -11,7 +11,7 @@ interface IOUROVesting {
 /**
  * @dev OURO Staking contract
  */
-contract OUROStaking is Ownable {
+contract OUROStaking is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     
@@ -77,13 +77,13 @@ contract OUROStaking is Ownable {
     /**
      * @dev stake OURO
      */
-    function deposit(uint256 amount) external {
+    function deposit(uint256 amount) external nonReentrant {
         // settle previous rewards
         _settleStaker(msg.sender);
         
         // modifiy
-        _balances[msg.sender] += amount;
-        _totalStaked += amount;
+        _balances[msg.sender] = _balances[msg.sender].add(amount);
+        _totalStaked = _totalStaked.add(amount);
         
         // transfer asset from AssetContract
         IERC20(ouroContract).safeTransferFrom(msg.sender, address(this), amount);
@@ -113,15 +113,15 @@ contract OUROStaking is Ownable {
     /**
      * @dev withdraw the staked OURO
      */
-    function withdraw(uint256 amount) external {
+    function withdraw(uint256 amount) external nonReentrant {
         require(amount <= _balances[msg.sender], "balance exceeded");
 
         // settle previous rewards
         _settleStaker(msg.sender);
 
         // modifiy
-        _balances[msg.sender] -= amount;
-        _totalStaked -= amount;
+        _balances[msg.sender] = _balances[msg.sender].sub(amount);
+        _totalStaked = _totalStaked.sub(amount);
         
         // transfer assets back
         IERC20(ouroContract).safeTransfer(msg.sender, amount);
@@ -175,7 +175,7 @@ contract OUROStaking is Ownable {
         
         // IMPORTANT!
         // bound to mint hard cap
-        if (TokenRewarded + mintedReward > TokenRewardHardCap) {
+        if (TokenRewarded.add(mintedReward) > TokenRewardHardCap) {
             mintedReward = TokenRewardHardCap.sub(TokenRewarded);
         }
         

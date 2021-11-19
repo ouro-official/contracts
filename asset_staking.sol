@@ -10,15 +10,15 @@ import "library.sol";
  * claims it, and OURO of equivalent value will be minted thereafter to the user. Users can withdraw any 
  * asset staked with no cost other than incurred BSC transaction fees. 
  */
-contract AssetStaking is Ownable {
+contract AssetStaking is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     using Address for address payable;
 
     
-    uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
+    uint256 internal constant SHARE_MULTIPLIER = 1e18; // share multiplier to avert division underflow
     
-    address public assetContract; // the asset to stake
+    address public immutable assetContract; // the asset to stake
     address public immutable vTokenAddress; // venus vToken Address
     
     address public constant ouroContract = 0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628;
@@ -26,7 +26,6 @@ contract AssetStaking is Ownable {
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant ouroReserveAddress = 0x048CbCd2002f270ab2ABD0C9cC145AdDC0af9D85;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
-    address public constant usdtContract = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
 
     // pancake router
     IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
@@ -71,6 +70,7 @@ contract AssetStaking is Ownable {
     
     constructor(address assetContract_, address vTokenAddress_) public {
         require(assetContract_ != address(0), "constructor： assetContract_ is zero address");
+        require(assetContract_ == IVToken(vTokenAddress_).underlying(), "underlying asset does not match assetContract");
         
         if (assetContract_ == router.WETH()) {
             isNativeToken = true;
@@ -84,10 +84,10 @@ contract AssetStaking is Ownable {
         IVenusDistribution(unitroller).enterMarkets(venusMarkets);
 
         // approve asset to OURO reserve
-        IERC20(assetContract).safeApprove(ouroReserveAddress, MAX_UINT256); 
+        IERC20(assetContract_).safeApprove(ouroReserveAddress, MAX_UINT256); 
 
         // approve asset to vToken
-        IERC20(assetContract).safeApprove(vTokenAddress_, MAX_UINT256);
+        IERC20(assetContract_).safeApprove(vTokenAddress_, MAX_UINT256);
         
         // approve XVS to router
         IERC20(xvsAddress).safeApprove(address(router), MAX_UINT256); 
@@ -140,7 +140,7 @@ contract AssetStaking is Ownable {
     /**
      * @dev deposit assets
      */
-    function deposit(uint256 amount) external payable {
+    function deposit(uint256 amount) external payable nonReentrant {
         if (isNativeToken) {
             amount = msg.value;
         }
@@ -149,8 +149,8 @@ contract AssetStaking is Ownable {
         settleStaker(msg.sender);
         
         // modify balance
-        _balances[msg.sender] += amount;
-        _totalStaked += amount;
+        _balances[msg.sender] = _balances[msg.sender].add(amount);
+        _totalStaked = _totalStaked.add(amount);
         
         // transfer asset from AssetContract
         if (!isNativeToken) {
@@ -167,7 +167,7 @@ contract AssetStaking is Ownable {
     /**
      * @dev claim OGS rewards only
      */
-    function claimOGSRewards() external {
+    function claimOGSRewards() external nonReentrant {
         // settle previous rewards
         settleStaker(msg.sender);
         
@@ -185,7 +185,7 @@ contract AssetStaking is Ownable {
     /**
      * @dev claim OURO rewards only
      */
-    function claimOURORewards() external {
+    function claimOURORewards() external nonReentrant {
         // settle previous rewards
         settleStaker(msg.sender);
         
@@ -203,7 +203,7 @@ contract AssetStaking is Ownable {
     /**
      * @dev withdraw assets
      */
-    function withdraw(uint256 amount) external {
+    function withdraw(uint256 amount) external nonReentrant {
         require(amount <= _balances[msg.sender], "balance exceeded");
 
         // settle previous rewards
@@ -297,22 +297,24 @@ contract AssetStaking is Ownable {
         }
         
         // setp 1. settle venus XVS reward
+        uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
         IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
         
         // swap all XVS to staking asset
         address[] memory path;
-        if (assetContract == usdtContract) {
+        if (isNativeToken) { // XVS -> WBNB
             path = new address[](2);
             path[0] = xvsAddress;
             path[1] = assetContract;
-        } else {
+        } else { // XVS-> WBNB -> asset
             path = new address[](3);
             path[0] = xvsAddress;
-            path[1] = usdtContract; // use USDT to bridge
+            path[1] = router.WETH(); // use WBNB to bridge
             path[2] = assetContract;
         }
 
-        uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
+        xvsAmount = IERC20(xvsAddress).balanceOf(address(this)).sub(xvsAmount);
+        
         if (xvsAmount > 0 ) {
             if (isNativeToken) {
                 router.swapExactTokensForETH(

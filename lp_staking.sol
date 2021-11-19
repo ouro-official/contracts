@@ -8,13 +8,13 @@ import "./library.sol";
 /**
  * @dev LP staking related to OURO/xxx pair
  */
-contract LPStaking is Ownable {
+contract LPStaking is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     
-    uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
+    uint256 internal constant SHARE_MULTIPLIER = 1e18; // share multiplier to avert division underflow
     
-    address public assetContract; // the asset to stake
+    address public immutable assetContract; // the asset to stake
     address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
 
     mapping (address => uint256) private _balances; // tracking staker's value
@@ -70,7 +70,7 @@ contract LPStaking is Ownable {
     /**
      * @dev stake assets
      */
-    function deposit(uint256 amount) external {
+    function deposit(uint256 amount) external nonReentrant {
         // settle previous rewards
         settleStaker(msg.sender);
         
@@ -88,7 +88,7 @@ contract LPStaking is Ownable {
     /**
      * @dev claim rewards
      */
-    function claimRewards() external {
+    function claimRewards() external nonReentrant {
         // settle previous rewards
         settleStaker(msg.sender);
         
@@ -106,7 +106,7 @@ contract LPStaking is Ownable {
     /**
      * @dev withdraw the staked assets
      */
-    function withdraw(uint256 amount) external {
+    function withdraw(uint256 amount) external nonReentrant {
         require(amount <= _balances[msg.sender], "balance exceeded");
 
         // settle previous rewards
