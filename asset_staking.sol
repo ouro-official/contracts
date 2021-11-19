@@ -210,8 +210,8 @@ contract AssetStaking is Ownable, ReentrancyGuard {
         settleStaker(msg.sender, true);
 
         // modifiy
-        _balances[msg.sender] -= amount;
-        _totalStaked -= amount;
+        _balances[msg.sender] = _balances[msg.sender].sub(amount);
+        _totalStaked = _totalStaked.sub(amount);
         
         // redeem supply from venus
         _removeSupply(amount);
