@@ -146,7 +146,7 @@ contract AssetStaking is Ownable, ReentrancyGuard {
         }
         
         // settle previous rewards
-        settleStaker(msg.sender);
+        settleStaker(msg.sender, false);
         
         // modify balance
         _balances[msg.sender] = _balances[msg.sender].add(amount);
@@ -169,7 +169,7 @@ contract AssetStaking is Ownable, ReentrancyGuard {
      */
     function claimOGSRewards() external nonReentrant {
         // settle previous rewards
-        settleStaker(msg.sender);
+        settleStaker(msg.sender, true);
         
         // reward balance modification
         uint amountReward = _ogsRewardBalance[msg.sender];
@@ -187,7 +187,7 @@ contract AssetStaking is Ownable, ReentrancyGuard {
      */
     function claimOURORewards() external nonReentrant {
         // settle previous rewards
-        settleStaker(msg.sender);
+        settleStaker(msg.sender, true);
         
         // reward balance modification
         uint amountReward = _ouroRewardBalance[msg.sender];
@@ -207,7 +207,7 @@ contract AssetStaking is Ownable, ReentrancyGuard {
         require(amount <= _balances[msg.sender], "balance exceeded");
 
         // settle previous rewards
-        settleStaker(msg.sender);
+        settleStaker(msg.sender, true);
 
         // modifiy
         _balances[msg.sender] -= amount;
@@ -230,9 +230,11 @@ contract AssetStaking is Ownable, ReentrancyGuard {
     /**
      * @dev settle a staker
      */
-    function settleStaker(address account) internal {
+    function settleStaker(address account, bool shouldUpdateReward) internal {
         // update reward snapshot
-        updateReward();
+        if (shouldUpdateReward) {
+            updateReward();
+        }
         
         // settle this account
         uint accountCollateral = _balances[account];
@@ -347,12 +349,8 @@ contract AssetStaking is Ownable, ReentrancyGuard {
             // the diff is the assets revenue
             uint256 asssetsRevenue = underlyingBalance.sub(_totalStaked);
            
-            // check liquidity
-            (, uint liquidity,) = IVenusDistribution(unitroller).getAccountLiquidity(address(this));
-
-            // prevent zero redeeming
-            if (liquidity > 0) {
-                // proceed redeeming
+            // proceed redeeming
+            if (asssetsRevenue > 0) {
                 if (isNativeToken) {
                     IVBNB(vTokenAddress).redeemUnderlying(asssetsRevenue);
                 } else {
@@ -430,12 +428,12 @@ contract AssetStaking is Ownable, ReentrancyGuard {
     function totalStaked() external view returns (uint256) { return _totalStaked; }
     
     /**
-     * @notice sum unclaimed OGS reward;
+     * @notice sum unclaimed OURO reward;
      */
     function checkOUROReward(address account) external view returns(uint256 rewards) { return _ouroRewardBalance[account]; }
     
     /**
-     * @notice sum unclaimed OURO reward;
+     * @notice sum unclaimed OGS reward;
      */
     function checkOGSReward(address account) external view returns(uint256 rewards) {
         uint accountCollateral = _balances[account];
