@@ -957,17 +957,23 @@ contract OUROReserve is IOUROReserve,Ownable {
         for (uint i=0;i<collaterals.length;i++) {
             venusMarkets[i] = collaterals[i].vTokenAddress;
         }
+        
+        // balance - before
+        uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
+
         // claim venus XVS reward
         IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
 
         // and exchange XVS to OGS
+        // XVS -> WBNB -> USDT -> OGS
         address[] memory path = new address[](3);
         path[0] = xvsAddress;
-        path[1] = usdtContract;
-        path[2] = address(ogsContract);
+        path[1] = router.WETH();
+        path[2] = usdtContract;
+        path[3] = address(ogsContract);
 
-        // swap all XVS to OGS
-        uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
+        // balance - after swap all XVS to OGS
+        xvsAmount = IERC20(xvsAddress).balanceOf(address(this)).sub(xvsAmount);
 
         if (xvsAmount > 0) {
             // swap OGS out
@@ -1005,10 +1011,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             
                 // prevent zero redeeming
                 if (liquidity > 0 && revenue > 0) {
-                    // redeem asset
-                    IVToken(collateral.vTokenAddress).redeemUnderlying(revenue);
-
-                    // get actual revenue redeemed
+                    // balance - before
                     uint256 redeemedAmount;
                     if (collateral.token == WETH) {
                         redeemedAmount = address(this).balance;
@@ -1016,10 +1019,17 @@ contract OUROReserve is IOUROReserve,Ownable {
                         redeemedAmount = IERC20(collateral.token).balanceOf(address(this));
                     }
                     
+                    // redeem asset
+                    IVToken(collateral.vTokenAddress).redeemUnderlying(revenue);
+
+                    // get actual revenue redeemed and
                     // transfer asset to ouro revenue distribution contract
                     if (collateral.token == WETH) {
+                        // balance - after
+                        redeemedAmount = address(this).balance.sub(redeemedAmount);
                         payable(address(ouroDistContact)).sendValue(redeemedAmount);
                     } else {
+                        redeemedAmount = IERC20(collateral.token).balanceOf(address(this)).sub(redeemedAmount);
                         IERC20(collateral.token).safeTransfer(address(ouroDistContact), redeemedAmount);
                     }
                     
