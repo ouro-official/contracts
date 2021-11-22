@@ -159,6 +159,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev set fund of last resort address
      */
     function setLastResortFund(address account) external onlyOwner {
+        require(account != address(0), "account zero");
         lastResortFund = account;
         emit LastResortFundSet(account);
     }
@@ -175,6 +176,9 @@ contract OUROReserve is IOUROReserve,Ownable {
     {
         (, bool exist) = _findCollateral(token);
         require(!exist, "exist");
+        if (address(token) != WETH) {
+            require(IVToken(vTokenAddress).underlying() == token, "vTokenAddress.underlying != token");
+        }
 
         uint256 currentPrice = getAssetPrice(priceFeed);
         
@@ -327,7 +331,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         // check periodical OURO issuance limit
         uint periodN = block.timestamp.sub(issueFrom).div(ouroIssuePeriod);
         if (periodN < issueSchedule.length) { // still in control
-            require(assetValueInOuro + IERC20(ouroContract).totalSupply() 
+            require(assetValueInOuro.add(IERC20(ouroContract).totalSupply()) 
                         <=
                     uint256(issueSchedule[periodN]).mul(issueUnit),
                     "limited"
@@ -530,14 +534,14 @@ contract OUROReserve is IOUROReserve,Ownable {
     //    assets held in the pool is more than 3% less than the value of the issued OURO.
     // 2. The system will only use excess collateral in the pool to conduct OGS buy back and 
     //    burn when the value of the assets held in the pool is 3% higher than the value of the issued OURO
-    uint public rebalanceThreshold = 3;
-    uint public OGSbuyBackRatio = 70; // 70% to buy back OGS
+    uint public constant rebalanceThreshold = 3;
+    uint public constant OGSbuyBackRatio = 70; // 70% to buy back OGS
 
     // record last Rebase time
     uint public lastRebaseTimestamp = block.timestamp;
     
     // rebase period
-    uint public rebasePeriod = 1 days;
+    uint public constant rebasePeriod = 1 days;
 
     // multiplier
     uint internal constant MULTIPLIER = 1e12;
@@ -547,6 +551,8 @@ contract OUROReserve is IOUROReserve,Ownable {
      * public method for all external caller
      */
     function rebase() public {
+        // only from EOA
+        require(!msg.sender.isContract() && msg.sender == tx.origin);
          // rebase period check
         require(block.timestamp > lastRebaseTimestamp + rebasePeriod, "aggressive rebase");
         
@@ -935,6 +941,9 @@ contract OUROReserve is IOUROReserve,Ownable {
       * @dev a public function accessible to anyone to distribute revenue
       */
      function distributeRevenue() external {
+         // only from EOA
+         require(!msg.sender.isContract() && msg.sender == tx.origin);
+         
          _distributeXVS();
          _distributeAssetRevenue();
                  

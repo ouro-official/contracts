@@ -469,7 +469,7 @@ contract AssetStaking is Ownable, ReentrancyGuard {
      *
      * ======================================================================================
      */
-    bool public immutable isNativeToken;
+    bool public isNativeToken;
     
     /**
      * @dev supply assets to venus and get vToken
