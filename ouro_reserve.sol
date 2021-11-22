@@ -175,8 +175,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     {
         (, bool exist) = _findCollateral(token);
         require(!exist, "exist");
-        require(assetDecimal!=0,"decimal 0");
-        
+
         uint256 currentPrice = getAssetPrice(priceFeed);
         
         // create collateral info 
