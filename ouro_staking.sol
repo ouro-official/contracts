@@ -236,7 +236,7 @@ contract OUROStaking is Ownable, ReentrancyGuard {
             uint penalty = IERC20(ogsContract).balanceOf(address(this));
 
             // align to mint hard cap
-            if (TokenRewarded + mintedReward > TokenRewardHardCap) {
+            if (TokenRewarded.add(mintedReward) > TokenRewardHardCap) {
                 mintedReward = TokenRewardHardCap.sub(TokenRewarded);
             }
             
