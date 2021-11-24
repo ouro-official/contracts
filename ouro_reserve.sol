@@ -569,13 +569,13 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         require(!msg.sender.isContract() && msg.sender == tx.origin);
          // rebase period check
         require(block.timestamp > lastRebaseTimestamp + rebasePeriod, "aggressive rebase");
-        
-        // rebase collaterals
-        _rebase();
                 
         // update rebase time
         lastRebaseTimestamp = block.timestamp;
         
+        // rebase collaterals
+        _rebase();
+
         // book keeping after rebase
         if (block.timestamp > ouroLastPriceUpdate + ouroPriceResetPeriod) {
             // record price at month begins
