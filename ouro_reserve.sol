@@ -593,7 +593,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // compute values deviates
         if (totalCollateralValue >= totalIssuedOUROValue.mul(100+rebalanceThreshold).div(100)) {
-            _handleExceesiveValue(totalCollateralValue, totalIssuedOUROValue);
+            _handleExcessiveValue(totalCollateralValue, totalIssuedOUROValue);
           
         } else if (totalCollateralValue <= totalIssuedOUROValue.mul(100-rebalanceThreshold).div(100)) {
             // collaterals has less value to OURO value, mint new OGS to buy assets
@@ -607,7 +607,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     /**
      * @dev function to handle excessive value
      */
-    function _handleExceesiveValue(uint256 totalCollateralValue, uint256 totalIssuedOUROValue) internal {
+    function _handleExcessiveValue(uint256 totalCollateralValue, uint256 totalIssuedOUROValue) internal {
         // collaterals has excessive value to OURO value, 
         // 70% of the extra collateral would be used to BUY BACK OGS on secondary markets 
         // and conduct a token burn
