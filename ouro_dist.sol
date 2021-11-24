@@ -12,7 +12,7 @@ contract OURODist is IOURODist, Ownable {
     IOUROToken public constant ouroContract = IOUROToken(0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628);
     IOGSToken public constant ogsContract = IOGSToken(0x19F521235CaBAb5347B137f9D85e03D023Ccc76E);
     IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
-    address immutable internal WETH = router.WETH();
+    address immutable internal WBNB = router.WETH();
     uint256 constant internal swapDelay = 600;
     
     receive() external payable {}
@@ -73,14 +73,23 @@ contract OURODist is IOURODist, Ownable {
        // buy back OGS
        address[] memory path;
        if (token == busdContract) {
+           // path: BUSD -> OGS
            path = new address[](2);
            path[0] = token;
            path[1] = address(ogsContract);
-       } else {
+       } else if (token == WBNB) {
+           // path: WBNB -> BUSD -> OGS
            path = new address[](3);
            path[0] = token;
-           path[1] = busdContract; // use USD to bridge
+           path[1] = busdContract;
            path[2] = address(ogsContract);
+       } else {
+           // path: token -> WBNB -> BUSD -> OGS
+           path = new address[](4);
+           path[0] = token;
+           path[1] = WBNB;
+           path[2] = busdContract;
+           path[3] = address(ogsContract);
        }
 
         // swap & burn
@@ -89,7 +98,7 @@ contract OURODist is IOURODist, Ownable {
             // the path to swap OGS out
             // path:
             // exact collateral -> USD -> OGS
-            if (token == WETH) {
+            if (token == WBNB) {
                 // swap OGS out with native assets to THIS contract
                 amounts = router.swapExactETHForTokens{value:assetAmount}(
                    0, 
@@ -124,14 +133,23 @@ contract OURODist is IOURODist, Ownable {
        // buy back OGS
        address[] memory path;
        if (token == busdContract) {
+           // path: BUSD -> OGS
            path = new address[](2);
            path[0] = token;
            path[1] = address(ogsContract);
-       } else {
+       } else if (token == WBNB) {
+           // path: WBNB -> BUSD -> OGS
            path = new address[](3);
            path[0] = token;
-           path[1] = busdContract; // use USD to bridge
+           path[1] = busdContract;
            path[2] = address(ogsContract);
+       } else {
+           // path: token -> WBNB -> BUSD -> OGS
+           path = new address[](4);
+           path[0] = token;
+           path[1] = WBNB;
+           path[2] = busdContract;
+           path[3] = address(ogsContract);
        }
        
        // half of the asset to buy OGS
@@ -140,7 +158,7 @@ contract OURODist is IOURODist, Ownable {
         // swap & burn
         if (assetToBuyOGS > 0) {         
            // the path to swap OGS out
-            if (token == WETH) {
+            if (token == WBNB) {
                 router.swapExactETHForTokens{value:assetToBuyOGS}(
                    0, 
                    path, 
@@ -161,9 +179,18 @@ contract OURODist is IOURODist, Ownable {
 
        // the rest revenue will be used to buy USD
        if (token != busdContract) {
-           path = new address[](2);
-           path[0] = token;
-           path[1] = busdContract; 
+            if (token == WBNB) {
+                // path: WBNB -> BUSD
+                path = new address[](2);
+                path[0] = token;
+                path[1] = busdContract;
+            } else {
+                // path: token -> WBNB -> BUSD
+                path = new address[](3);
+                path[0] = token;
+                path[1] = WBNB;
+                path[2] = busdContract; 
+            }
            
            // half of the asset to buy USD
            uint256 assetToBuyUSD = assetAmount.sub(assetToBuyOGS);
@@ -172,7 +199,7 @@ contract OURODist is IOURODist, Ownable {
                 // the path to swap USD out
                 // path:
                 //  collateral -> USD
-                if (token == WETH) {
+                if (token == WBNB) {
                     router.swapExactETHForTokens{value:assetToBuyUSD}(
                        0, 
                        path, 

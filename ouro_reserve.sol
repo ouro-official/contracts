@@ -42,7 +42,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
     address public lastResortFund;
     
-    address immutable internal WETH = router.WETH();
+    address immutable internal WBNB = router.WETH();
     uint256 constant internal USD_UNIT = 1e18;
     uint256 constant internal MAX_UINT256 = uint256(-1);
     
@@ -176,7 +176,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     {
         (, bool exist) = _findCollateral(token);
         require(!exist, "exist");
-        if (address(token) != WETH) {
+        if (address(token) != WBNB) {
             require(IVToken(vTokenAddress).underlying() == token, "vTokenAddress.underlying != token");
         }
 
@@ -193,7 +193,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         collaterals.push(info);
         
         // approve ERC20 collateral to swap router & vToken
-        if (address(token) != WETH) {
+        if (address(token) != WBNB) {
             IERC20(token).safeApprove(address(router), 0);
             IERC20(token).safeIncreaseAllowance(address(router), MAX_UINT256);
             
@@ -219,7 +219,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             if (collaterals[i].token == token){
                 
                 // found! revoke router & vToken allowance to 0
-                if (address(token) != WETH) {
+                if (address(token) != WBNB) {
                     IERC20(token).safeApprove(address(router), 0);
                     IERC20(token).safeApprove(collaterals[i].vTokenAddress, 0);
                 }
@@ -250,7 +250,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         uint n = collaterals.length;
         for (uint i=0;i<n;i++) {
             IERC20 token = IERC20(collaterals[i].token);
-            if (address(token) != WETH) {
+            if (address(token) != WBNB) {
                 // re-approve asset to venus
                 token.safeApprove(address(router), 0);
                 token.safeIncreaseAllowance(address(router), MAX_UINT256);
@@ -325,7 +325,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         require(valid, "invalid collateral");
 
         // for native token, replace amountAsset with use msg.value instead
-        if (token == WETH) {
+        if (token == WBNB) {
             amountAsset = msg.value;
         }
         
@@ -347,7 +347,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         
         // transfer token assets to this contract
         // @notice for ERC20 assets, users need to approve() to this reserve contract 
-        if (token != WETH) {
+        if (token != WBNB) {
             IERC20(token).safeTransferFrom(msg.sender, address(this), amountAsset);
         }
                                         
@@ -371,7 +371,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev farm the user's deposit
      */
     function _supply(address token, address vTokenAddress, uint256 amountAsset) internal {
-        if (token == WETH) {
+        if (token == WBNB) {
             IVBNB(vTokenAddress).mint{value: amountAsset}();
         } else {
             IVToken(vTokenAddress).mint(amountAsset);
@@ -422,18 +422,25 @@ contract OUROReserve is IOUROReserve,Ownable {
             uint256 extraAssets = amountAsset.sub(assetBalance);
     
             // find how many extra OUROs required to swap the extra assets out
-            // path:
-            //  (??? ouro) -> BUSD -> collateral
             address[] memory path;
             if (token == busdContract) {
+                // path: ouro -> BUSD
                 path = new address[](2);
                 path[0] = address(ouroContract);
                 path[1] = token;
-            } else {
+            } else if (token == WBNB) {
+                // path: ouro -> BUSD -> WBNB
                 path = new address[](3);
                 path[0] = address(ouroContract);
-                path[1] = busdContract; // use USD to bridge
-                path[2] = token;
+                path[1] = busdContract; 
+                path[2] = token; 
+            } else {
+                // path: ouro -> BUSD -> WBNB -> collateral
+                path = new address[](4);
+                path[0] = address(ouroContract);
+                path[1] = busdContract; 
+                path[2] = WBNB;
+                path[3] = token;
             }
 
             uint [] memory amounts = router.getAmountsIn(extraAssets, path);
@@ -451,7 +458,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             // b) OURO to buy back assets
             // path:
             //  ouro-> (USD) -> collateral
-            if (token == WETH) {
+            if (token == WBNB) {
                 amounts = router.swapExactTokensForETH (
                     extraOuroRequired, 
                     0, 
@@ -472,7 +479,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         }
         
         // finally we transfer the assets based on asset type back to user
-        if (token == WETH) {
+        if (token == WBNB) {
             uint256 value = address(this).balance < amountAsset? address(this).balance:amountAsset;
             msg.sender.sendValue(value);
         } else {
@@ -491,7 +498,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev redeem assets from farm
      */
     function _redeemSupply(address token, address vTokenAddress, uint256 amountAsset) internal {
-        if (token == WETH) {
+        if (token == WBNB) {
             IVBNB(vTokenAddress).redeemUnderlying(amountAsset);
         } else {
             IVToken(vTokenAddress).redeemUnderlying(amountAsset);
@@ -778,7 +785,7 @@ contract OUROReserve is IOUROReserve,Ownable {
          
         // balance - before redeeming 
         uint256 redeemedAmount;
-        if (token == WETH) {
+        if (token == WBNB) {
             redeemedAmount = address(this).balance;
         } else {
             redeemedAmount = IERC20(token).balanceOf(address(this));
@@ -788,7 +795,7 @@ contract OUROReserve is IOUROReserve,Ownable {
         _redeemSupply(token, vTokenAddress, collateralToRedeem);
         
         // balance - after redeeming
-        if (token == WETH) {
+        if (token == WBNB) {
             redeemedAmount = address(this).balance.sub(redeemedAmount);
         } else {
             redeemedAmount = IERC20(token).balanceOf(address(this)).sub(redeemedAmount);
@@ -801,14 +808,26 @@ contract OUROReserve is IOUROReserve,Ownable {
         // allocation a)
         // swap to BUSD to form last resort insurance fund (50%)
         if (assetToInsuranceFund >0) {
-            if (token != busdContract) {
+            if (token == busdContract) {
+                // transfer assetToInsuranceFund(50%) to last resort fund
+                IERC20(busdContract).safeTransfer(lastResortFund, assetToInsuranceFund);
+            } else {
                 address[] memory path;
-                path = new address[](2);
-                path[0] = token;
-                path[1] = busdContract;
+                if (token == WBNB) {
+                    // path: token -> BUSD
+                    path = new address[](2);
+                    path[0] = token;
+                    path[1] = busdContract;
+                } else {
+                    // path: token -> WBNB -> BUSD
+                    path = new address[](3);
+                    path[0] = token;
+                    path[1] = WBNB;
+                    path[2] = busdContract;
+                }
                 
                 // swap USD out
-                if (token == WETH) {
+                if (token == WBNB) {
                     router.swapExactETHForTokens{value:assetToInsuranceFund}(
                         0, 
                         path, 
@@ -825,34 +844,41 @@ contract OUROReserve is IOUROReserve,Ownable {
                         block.timestamp.add(600)
                     );
                 }
+                
+                // transfer all swapped USD to last resort fund
+                uint256 amountUSD = IERC20(busdContract).balanceOf(address(this));
+                IERC20(busdContract).safeTransfer(lastResortFund, amountUSD);
             }
         }
-        
-        // transfer all USD to last resort fund
-        uint256 amountUSD = IERC20(busdContract).balanceOf(address(this));
-        IERC20(busdContract).safeTransfer(lastResortFund, amountUSD);
         
         // allocation b)
         // conduct a ogs burn
         // the path to find how many OGS can be swapped
-        // path:
-        //  exact collateral -> USD -> ??? OGS
         address[] memory path;
         if (token == busdContract) {
+            // path: BUSD -> OGS
             path = new address[](2);
             path[0] = token;
             path[1] = address(ogsContract);
-        } else {
+        } else if (token == WBNB) {
+            // path: WBNB -> BUSD -> OGS
             path = new address[](3);
             path[0] = token;
-            path[1] = busdContract; // use USD to bridge
+            path[1] = busdContract;
             path[2] = address(ogsContract);
+        } else {
+            // path: token -> WBNB -> BUSD -> OGS
+            path = new address[](4);
+            path[0] = token;
+            path[1] = WBNB; 
+            path[2] = busdContract;
+            path[3] = address(ogsContract);
         }
         
         // swap OGS out
         uint [] memory amounts;
         if (assetToBuyBackOGS > 0) {
-            if (token == WETH) {
+            if (token == WBNB) {
                 amounts = router.swapExactETHForTokens{value:assetToBuyBackOGS}(
                     0, 
                     path, 
@@ -888,18 +914,25 @@ contract OUROReserve is IOUROReserve,Ownable {
                                         .div(getAssetPrice(priceFeed));
                                              
         // the path to find how many OGS required to swap collateral out
-        // path:
-        //  (??? OGS) -> USD -> collateral
         address[] memory path;
         if (token == busdContract) {
+            // path: OGS-> BUSD
             path = new address[](2);
             path[0] = address(ogsContract);
             path[1] = token;
-        } else {
+        } else if (token == WBNB) {
+            // path: OGS-> BUSD -> WBNB
             path = new address[](3);
             path[0] = address(ogsContract);
             path[1] = busdContract; // use USD to bridge
             path[2] = token;
+        } else {
+            // path: OGS-> BUSD -> WBNB -> collateral
+            path = new address[](4);
+            path[0] = address(ogsContract);
+            path[1] = busdContract; // use USD to bridge
+            path[1] = WBNB;
+            path[3] = token;
         }
         
         if (collateralToBuyBack > 0) {
@@ -914,7 +947,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             // the path to swap collateral out
             // path:
             //  (exact OGS) -> USD -> collateral
-            if (token == WETH) {
+            if (token == WBNB) {
                 amounts = router.swapExactTokensForETH(
                     ogsRequired,
                     0,
@@ -982,9 +1015,9 @@ contract OUROReserve is IOUROReserve,Ownable {
 
         // and exchange XVS to OGS
         // XVS -> WBNB -> USD -> OGS
-        address[] memory path = new address[](3);
+        address[] memory path = new address[](4);
         path[0] = xvsAddress;
-        path[1] = router.WETH();
+        path[1] = WBNB;
         path[2] = busdContract;
         path[3] = address(ogsContract);
 
@@ -1029,7 +1062,7 @@ contract OUROReserve is IOUROReserve,Ownable {
                 if (liquidity > 0 && revenue > 0) {
                     // balance - before
                     uint256 redeemedAmount;
-                    if (collateral.token == WETH) {
+                    if (collateral.token == WBNB) {
                         redeemedAmount = address(this).balance;
                     } else {
                         redeemedAmount = IERC20(collateral.token).balanceOf(address(this));
@@ -1040,7 +1073,7 @@ contract OUROReserve is IOUROReserve,Ownable {
 
                     // get actual revenue redeemed and
                     // transfer asset to ouro revenue distribution contract
-                    if (collateral.token == WETH) {
+                    if (collateral.token == WBNB) {
                         // balance - after
                         redeemedAmount = address(this).balance.sub(redeemedAmount);
                         payable(address(ouroDistContact)).sendValue(redeemedAmount);
