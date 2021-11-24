@@ -355,7 +355,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         IOUROToken(ouroContract).mint(msg.sender, assetValueInOuro);
         
         // update asset balance
-        _assetsBalance[address(token)] += amountAsset;
+        _assetsBalance[address(token)] = _assetsBalance[address(token)].add(amountAsset);
 
         // finally we farm the assets received
         _supply(collateral.token, collateral.vTokenAddress, amountAsset);
@@ -396,7 +396,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         // perform OURO token burn
         if (assetBalance >= amountAsset) {
             // substract asset balance
-            _assetsBalance[address(token)] -= amountAsset;
+            _assetsBalance[address(token)] = _assetsBalance[address(token)].sub(amountAsset);
             
             // redeem assets
             _redeemSupply(collateral.token, collateral.vTokenAddress, amountAsset);
