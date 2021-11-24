@@ -282,6 +282,8 @@ contract OUROReserve is IOUROReserve,Ownable {
       */
      function changeOURODist(address newContract) external onlyOwner {
          ouroDistContact = IOURODist(newContract);
+         
+         emit OuroDistChanged(newContract);
      }
     
     /**
@@ -289,6 +291,8 @@ contract OUROReserve is IOUROReserve,Ownable {
      */
     function toggleWhiteList() external onlyOwner {
         whiteListEnabled = whiteListEnabled?false:true;
+        
+        emit WhiteListToggled(whiteListEnabled);
     }
     
     /**
@@ -296,6 +300,8 @@ contract OUROReserve is IOUROReserve,Ownable {
      */
     function setToWhiteList(address account, bool allow) external onlyOwner {
         _whitelist[account] = allow;
+        
+        emit WhiteListSet(account, allow);
     }
     
     /**
@@ -1059,4 +1065,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      event XVSDist(uint256 amount);
      event RevenueDistributed();
      event LastResortFundSet(address account);
+     event OuroDistChanged(address account);
+     event WhiteListToggled(bool enabled);
+     event WhiteListSet(address account, bool allow);
 }
