@@ -383,6 +383,8 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @notice users need approve() OURO assets to this contract
      */
     function withdraw(address token, uint256 amountAsset) external override returns (uint256 OUROTaken) {
+        // non 0 check
+        require(amountAsset > 0 , "0 withdraw");
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
@@ -456,8 +458,6 @@ contract OUROReserve is IOUROReserve,Ownable {
             IOUROToken(ouroContract).burn(redeemedAssetValueInOURO);
             
             // b) OURO to buy back assets
-            // path:
-            //  ouro-> (USD) -> collateral
             if (token == WBNB) {
                 amounts = router.swapExactTokensForETH (
                     extraOuroRequired, 
