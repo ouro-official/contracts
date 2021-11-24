@@ -7,7 +7,7 @@ import "./library.sol";
 /**
  * @title OURO community reserve
  */
-contract OUROReserve is IOUROReserve,Ownable {
+contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     using Address for address payable;
@@ -318,7 +318,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @notice users need approve() assets to this contract
      * returns OURO minted
      */
-    function deposit(address token, uint256 amountAsset) external override payable checkWhiteList returns (uint256 OUROMinted) {
+    function deposit(address token, uint256 amountAsset) external override payable checkWhiteList nonReentrant returns (uint256 OUROMinted) {
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
@@ -382,7 +382,7 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev user swap his OURO back to assets
      * @notice users need approve() OURO assets to this contract
      */
-    function withdraw(address token, uint256 amountAsset) external override returns (uint256 OUROTaken) {
+    function withdraw(address token, uint256 amountAsset) external override nonReentrant returns (uint256 OUROTaken) {
         // non 0 check
         require(amountAsset > 0 , "0 withdraw");
         
