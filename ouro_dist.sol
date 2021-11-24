@@ -8,7 +8,7 @@ contract OURODist is IOURODist, Ownable {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
     
-    address public constant usdtContract = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+    address public constant busdContract = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
     IOUROToken public constant ouroContract = IOUROToken(0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628);
     IOGSToken public constant ogsContract = IOGSToken(0x19F521235CaBAb5347B137f9D85e03D023Ccc76E);
     IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
@@ -20,8 +20,8 @@ contract OURODist is IOURODist, Ownable {
     uint256 constant internal MAX_UINT256 = uint256(-1);
 
     constructor() public {
-        // approve USDT
-        IERC20(usdtContract).safeIncreaseAllowance(address(router), MAX_UINT256);
+        // approve USD
+        IERC20(busdContract).safeIncreaseAllowance(address(router), MAX_UINT256);
         
         // approve OGS
         IERC20(ogsContract).safeIncreaseAllowance(address(router), MAX_UINT256);
@@ -72,14 +72,14 @@ contract OURODist is IOURODist, Ownable {
     function _revenueToBuyBackOGS(address token, uint256 assetAmount) internal {
        // buy back OGS
        address[] memory path;
-       if (token == usdtContract) {
+       if (token == busdContract) {
            path = new address[](2);
            path[0] = token;
            path[1] = address(ogsContract);
        } else {
            path = new address[](3);
            path[0] = token;
-           path[1] = usdtContract; // use USDT to bridge
+           path[1] = busdContract; // use USD to bridge
            path[2] = address(ogsContract);
        }
 
@@ -88,7 +88,7 @@ contract OURODist is IOURODist, Ownable {
             uint [] memory amounts;
             // the path to swap OGS out
             // path:
-            // exact collateral -> USDT -> OGS
+            // exact collateral -> USD -> OGS
             if (token == WETH) {
                 // swap OGS out with native assets to THIS contract
                 amounts = router.swapExactETHForTokens{value:assetAmount}(
@@ -123,14 +123,14 @@ contract OURODist is IOURODist, Ownable {
     function _revenueToFormLP(address token, uint256 assetAmount) internal {
        // buy back OGS
        address[] memory path;
-       if (token == usdtContract) {
+       if (token == busdContract) {
            path = new address[](2);
            path[0] = token;
            path[1] = address(ogsContract);
        } else {
            path = new address[](3);
            path[0] = token;
-           path[1] = usdtContract; // use USDT to bridge
+           path[1] = busdContract; // use USD to bridge
            path[2] = address(ogsContract);
        }
        
@@ -159,21 +159,21 @@ contract OURODist is IOURODist, Ownable {
             }
         }
 
-       // the rest revenue will be used to buy USDT
-       if (token != usdtContract) {
+       // the rest revenue will be used to buy USD
+       if (token != busdContract) {
            path = new address[](2);
            path[0] = token;
-           path[1] = usdtContract; 
+           path[1] = busdContract; 
            
-           // half of the asset to buy USDT
-           uint256 assetToBuyUSDT = assetAmount.sub(assetToBuyOGS);
+           // half of the asset to buy USD
+           uint256 assetToBuyUSD = assetAmount.sub(assetToBuyOGS);
            
            if (assetAmount > 0) {
-                // the path to swap USDT out
+                // the path to swap USD out
                 // path:
-                //  collateral -> USDT
+                //  collateral -> USD
                 if (token == WETH) {
-                    router.swapExactETHForTokens{value:assetToBuyUSDT}(
+                    router.swapExactETHForTokens{value:assetToBuyUSD}(
                        0, 
                        path, 
                        address(this), 
@@ -182,7 +182,7 @@ contract OURODist is IOURODist, Ownable {
                    
                 } else {
                     router.swapExactTokensForTokens(
-                       assetToBuyUSDT, 
+                       assetToBuyUSD, 
                        0, 
                        path, 
                        address(this), 
@@ -195,12 +195,12 @@ contract OURODist is IOURODist, Ownable {
        // add liquidity to router
        // note we always use the maximum possible 
        uint256 token0Amt = IERC20(ogsContract).balanceOf(address(this));
-       uint256 token1Amt = IERC20(usdtContract).balanceOf(address(this));
+       uint256 token1Amt = IERC20(busdContract).balanceOf(address(this));
        
        if (token0Amt > 0 && token1Amt > 0) {
            (uint amountA, uint amountB, uint liquidity) = router.addLiquidity(
                address(ogsContract),
-               usdtContract,
+               busdContract,
                token0Amt,
                token1Amt,
                0,
@@ -224,5 +224,5 @@ contract OURODist is IOURODist, Ownable {
      event ResetAllowance(address token);
      event RevenuArrival(address token, uint256 amount);
      event OGSBurned(uint ogsAmount);
-     event LiquidityAdded(uint ogsAmount, uint usdtAmount, uint liquidity);
+     event LiquidityAdded(uint ogsAmount, uint usdAmount, uint liquidity);
 }

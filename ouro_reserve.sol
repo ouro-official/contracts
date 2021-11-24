@@ -24,8 +24,8 @@ contract OUROReserve is IOUROReserve,Ownable {
      */
 
     // @dev ouro price 
-    uint256 public ouroPrice = 1e18; // current ouro price, initially 1 OURO = 1 USDT
-    uint256 public ouroPriceAtMonthStart = 1e18; // ouro price at the begining of a month, initially set to 1 USDT
+    uint256 public ouroPrice = 1e18; // current ouro price, initially 1 OURO = 1 USD
+    uint256 public ouroPriceAtMonthStart = 1e18; // ouro price at the begining of a month, initially set to 1 USD
     uint256 public constant OURO_PRICE_UNIT = 1e18; // 1 OURO = 1e18
     uint public ouroLastPriceUpdate = block.timestamp; 
     uint public ouroPriceResetPeriod = 30 days; // price limit reset mothly
@@ -33,7 +33,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     uint public appreciationLimit = 3; // 3 perce nt monthly OURO price appreciation limit
 
     // contracts
-    address public constant usdtContract = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+    address public constant busdContract = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
     IOUROToken public constant ouroContract = IOUROToken(0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628);
     IOGSToken public constant ogsContract = IOGSToken(0x19F521235CaBAb5347B137f9D85e03D023Ccc76E);
     IOURODist public ouroDistContact = IOURODist(0xc2360645Af388B5666CF241a8194b340548e98eD);
@@ -43,7 +43,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     address public lastResortFund;
     
     address immutable internal WETH = router.WETH();
-    uint256 constant internal USDT_UNIT = 1e18;
+    uint256 constant internal USD_UNIT = 1e18;
     uint256 constant internal MAX_UINT256 = uint256(-1);
     
     // @dev montly OURO issuance schedule in 100k(1e5) OURO
@@ -111,7 +111,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     function getPrice() public view override returns(uint256) { return ouroPrice; }
     
     /**
-     * @dev get asset price in USDT(decimal=8) for 1 unit of asset
+     * @dev get asset price in USDT for 1 unit of asset
      */
     function getAssetPrice(AggregatorV3Interface feed) public view returns(uint256) {
         // query price from chainlink
@@ -120,10 +120,10 @@ contract OUROReserve is IOUROReserve,Ownable {
         // avert negative price
         require (latestPrice > 0, "invalid price");
         
-        // return price corrected to USDT decimal
-        // always align the price to USDT decimal, which is 1e18 on BSC and 1e6 on Ethereum
+        // return price corrected to USD decimal
+        // always align the price to USD decimal, which is 1e18 on BSC and 1e6 on Ethereum
         return uint256(latestPrice)
-                        .mul(USDT_UNIT)
+                        .mul(USD_UNIT)
                         .div(10**uint256(feed.decimals()));
     }
     
@@ -423,16 +423,16 @@ contract OUROReserve is IOUROReserve,Ownable {
     
             // find how many extra OUROs required to swap the extra assets out
             // path:
-            //  (??? ouro) -> USDT -> collateral
+            //  (??? ouro) -> BUSD -> collateral
             address[] memory path;
-            if (token == usdtContract) {
+            if (token == busdContract) {
                 path = new address[](2);
                 path[0] = address(ouroContract);
                 path[1] = token;
             } else {
                 path = new address[](3);
                 path[0] = address(ouroContract);
-                path[1] = usdtContract; // use USDT to bridge
+                path[1] = busdContract; // use USD to bridge
                 path[2] = token;
             }
 
@@ -450,7 +450,7 @@ contract OUROReserve is IOUROReserve,Ownable {
             
             // b) OURO to buy back assets
             // path:
-            //  ouro-> (USDT) -> collateral
+            //  ouro-> (USD) -> collateral
             if (token == WETH) {
                 amounts = router.swapExactTokensForETH (
                     extraOuroRequired, 
@@ -514,16 +514,16 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev find the given asset value priced in OURO
      */
     function _lookupAssetValueInOURO(AggregatorV3Interface priceFeed, uint256 assetUnit, uint256 amountAsset) internal view returns (uint256 amountOURO) {
-        // get lastest asset value in USDT
+        // get lastest asset value in USD
         uint256 assetUnitPrice = getAssetPrice(priceFeed);
         
-        // compute total USDT value
-        uint256 assetValueInUSDT = amountAsset
+        // compute total USD value
+        uint256 assetValueInUSD = amountAsset
                                                     .mul(assetUnitPrice)
                                                     .div(assetUnit);
                                                     
-        // convert asset USDT value to OURO value
-        uint256 assetValueInOuro = assetValueInUSDT.mul(OURO_PRICE_UNIT)
+        // convert asset USD value to OURO value
+        uint256 assetValueInOuro = assetValueInUSD.mul(OURO_PRICE_UNIT)
                                                     .div(ouroPrice);
                                                     
         return assetValueInOuro;
@@ -584,9 +584,9 @@ contract OUROReserve is IOUROReserve,Ownable {
      * @dev rebase is the stability dynamics for OURO
      */
     function _rebase() internal {
-        // get total collateral value priced in USDT
+        // get total collateral value priced in USD
         uint256 totalCollateralValue = _getTotalCollateralValue();
-        // get total issued OURO value priced in USDT
+        // get total issued OURO value priced in USD
         uint256 totalIssuedOUROValue =              ouroContract.totalSupply()
                                                     .mul(getPrice())
                                                     .div(OURO_PRICE_UNIT);
@@ -621,8 +621,8 @@ contract OUROReserve is IOUROReserve,Ownable {
         // conduct an ouro default price change                                
         if (ouroPrice < priceUpperLimit) {
             // However, since there is a 3% limit on how much the OURO Default Exchange Price can increase per month, 
-            // only [100,000,000*0.03 = 3,000,000] USDT worth of excess assets can be utilized. This 3,000,000 USDT worth of 
-            // assets will remain in the Reserve Pool, while the remaining [50,000,000-3,000,000=47,000,000] USDT worth 
+            // only [100,000,000*0.03 = 3,000,000] USD worth of excess assets can be utilized. This 3,000,000 USD worth of 
+            // assets will remain in the Reserve Pool, while the remaining [50,000,000-3,000,000=47,000,000] USD worth 
             // of assets will be used for OGS buyback and burns. 
             
             // (limit - current ouro price) / current ouro price
@@ -667,7 +667,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     
     /**
      * @dev value deviates, execute buy back operations
-     * valueDeviates is priced in USDT
+     * valueDeviates is priced in USD
      */
     function _executeRebalance(bool isExcessive, uint256 valueDeviates) internal {
         // step 1. sum total deviated collateral value 
@@ -689,7 +689,7 @@ contract OUROReserve is IOUROReserve,Ownable {
                 }
             }
             
-            // accumulate value in USDT
+            // accumulate value in USD
             totalCollateralValueDeviated += getAssetPrice(collateral.priceFeed)
                                                 .mul(_assetsBalance[collateral.token])
                                                 .div(collateral.assetUnit);
@@ -713,12 +713,12 @@ contract OUROReserve is IOUROReserve,Ownable {
                 }
             }
             
-            // calc slot value in USDT
+            // calc slot value in USD
             uint256 slotValue = getAssetPrice(collateral.priceFeed)
                                                 .mul(_assetsBalance[collateral.token])
                                                 .div(collateral.assetUnit);
             
-            // calc pro-rata buy back value(in USDT) for this collateral
+            // calc pro-rata buy back value(in USD) for this collateral
             uint256 slotBuyBackValue = slotValue.mul(valueDeviates)
                                                 .div(totalCollateralValueDeviated);
                                 
@@ -750,7 +750,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     }
 
     /**
-     * @dev get total collateral value in USDT
+     * @dev get total collateral value in USD
      */
     function _getTotalCollateralValue() internal view returns(uint256) {
         uint256 totalCollateralValue;
@@ -775,14 +775,23 @@ contract OUROReserve is IOUROReserve,Ownable {
                                         .div(getAssetPrice(priceFeed));
         // accounting
         _assetsBalance[token] = _assetsBalance[token].sub(collateralToRedeem);
-        
-        // redeem supply from farming
-        _redeemSupply(token, vTokenAddress, collateralToRedeem);
+         
+        // balance - before redeeming 
         uint256 redeemedAmount;
         if (token == WETH) {
             redeemedAmount = address(this).balance;
         } else {
             redeemedAmount = IERC20(token).balanceOf(address(this));
+        }
+        
+        // redeem supply from farming
+        _redeemSupply(token, vTokenAddress, collateralToRedeem);
+        
+        // balance - after redeeming
+        if (token == WETH) {
+            redeemedAmount = address(this).balance.sub(redeemedAmount);
+        } else {
+            redeemedAmount = IERC20(token).balanceOf(address(this)).sub(redeemedAmount);
         }
 
         // split assets allocation
@@ -790,15 +799,15 @@ contract OUROReserve is IOUROReserve,Ownable {
         uint256 assetToBuyBackOGS = redeemedAmount.sub(assetToInsuranceFund);
         
         // allocation a)
-        // swap to USDT to form last resort insurance fund (50%)
+        // swap to BUSD to form last resort insurance fund (50%)
         if (assetToInsuranceFund >0) {
-            if (token != usdtContract) {
+            if (token != busdContract) {
                 address[] memory path;
                 path = new address[](2);
                 path[0] = token;
-                path[1] = usdtContract;
+                path[1] = busdContract;
                 
-                // swap USDT out
+                // swap USD out
                 if (token == WETH) {
                     router.swapExactETHForTokens{value:assetToInsuranceFund}(
                         0, 
@@ -819,24 +828,24 @@ contract OUROReserve is IOUROReserve,Ownable {
             }
         }
         
-        // transfer all USDT to last resort fund
-        uint256 amountUSDT = IERC20(usdtContract).balanceOf(address(this));
-        IERC20(usdtContract).safeTransfer(lastResortFund, amountUSDT);
+        // transfer all USD to last resort fund
+        uint256 amountUSD = IERC20(busdContract).balanceOf(address(this));
+        IERC20(busdContract).safeTransfer(lastResortFund, amountUSD);
         
         // allocation b)
         // conduct a ogs burn
         // the path to find how many OGS can be swapped
         // path:
-        //  exact collateral -> USDT -> ??? OGS
+        //  exact collateral -> USD -> ??? OGS
         address[] memory path;
-        if (token == usdtContract) {
+        if (token == busdContract) {
             path = new address[](2);
             path[0] = token;
             path[1] = address(ogsContract);
         } else {
             path = new address[](3);
             path[0] = token;
-            path[1] = usdtContract; // use USDT to bridge
+            path[1] = busdContract; // use USD to bridge
             path[2] = address(ogsContract);
         }
         
@@ -871,7 +880,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     
     /**
      * @dev buy back collateral with OGS
-     * slotValue is priced in USDT 
+     * slotValue is priced in BUSD 
      */
     function _buybackCollateral(address token ,address vTokenAddress, uint256 assetUnit, AggregatorV3Interface priceFeed, uint256 slotValue) internal {
         uint256 collateralToBuyBack = slotValue
@@ -880,16 +889,16 @@ contract OUROReserve is IOUROReserve,Ownable {
                                              
         // the path to find how many OGS required to swap collateral out
         // path:
-        //  (??? OGS) -> USDT -> collateral
+        //  (??? OGS) -> USD -> collateral
         address[] memory path;
-        if (token == usdtContract) {
+        if (token == busdContract) {
             path = new address[](2);
             path[0] = address(ogsContract);
             path[1] = token;
         } else {
             path = new address[](3);
             path[0] = address(ogsContract);
-            path[1] = usdtContract; // use USDT to bridge
+            path[1] = busdContract; // use USD to bridge
             path[2] = token;
         }
         
@@ -904,7 +913,7 @@ contract OUROReserve is IOUROReserve,Ownable {
     
             // the path to swap collateral out
             // path:
-            //  (exact OGS) -> USDT -> collateral
+            //  (exact OGS) -> USD -> collateral
             if (token == WETH) {
                 amounts = router.swapExactTokensForETH(
                     ogsRequired,
@@ -972,11 +981,11 @@ contract OUROReserve is IOUROReserve,Ownable {
         IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
 
         // and exchange XVS to OGS
-        // XVS -> WBNB -> USDT -> OGS
+        // XVS -> WBNB -> USD -> OGS
         address[] memory path = new address[](3);
         path[0] = xvsAddress;
         path[1] = router.WETH();
-        path[2] = usdtContract;
+        path[2] = busdContract;
         path[3] = address(ogsContract);
 
         // balance - after swap all XVS to OGS
