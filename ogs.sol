@@ -89,7 +89,7 @@ contract OGSToken is ERC20, Ownable, IOGSToken {
      *
      * See {ERC20-_burn}.
      */
-    function burn(uint256 amount) public override {
+    function burn(uint256 amount) public override onlyMintableGroup {
         _burn(_msgSender(), amount);
     }
 

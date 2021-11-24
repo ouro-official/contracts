@@ -84,12 +84,13 @@ contract OUROToken is ERC20, Ownable, IOUROToken {
         _mint(account, amount);
         
     }
+    
     /**
      * @dev Destroys `amount` tokens from the user.
      *
      * See {ERC20-_burn}.
      */
-    function burn(uint256 amount) public override {
+    function burn(uint256 amount) public override onlyMintableGroup {
         _burn(_msgSender(), amount);
     }
 
