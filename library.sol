@@ -1058,6 +1058,7 @@ interface IOUROReserve {
 }
 
 interface IOURODist {
+    function isDist() external view returns (bool);
     function revenueArrival(address token, uint256 assetAmount) external;
     function resetAllowance(address token) external;
 }

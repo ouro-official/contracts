@@ -281,6 +281,7 @@ contract OUROReserve is IOUROReserve,Ownable {
       * in case of severe bug
       */
      function changeOURODist(address newContract) external onlyOwner {
+         require (IOURODist(newContract).isDist(), "not a dist contract");
          ouroDistContact = IOURODist(newContract);
          
          emit OuroDistChanged(newContract);

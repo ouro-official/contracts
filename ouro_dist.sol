@@ -26,6 +26,11 @@ contract OURODist is IOURODist, Ownable {
         // approve OGS
         IERC20(ogsContract).safeIncreaseAllowance(address(router), MAX_UINT256);
     }
+    
+    /**
+     * @dev add a function for sanity check
+     */
+    function isDist() external override view returns (bool) { return true; }
      
     /** 
      * @dev reset allowance for special token
