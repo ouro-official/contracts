@@ -931,7 +931,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             path = new address[](4);
             path[0] = address(ogsContract);
             path[1] = busdContract; // use USD to bridge
-            path[1] = WBNB;
+            path[2] = WBNB;
             path[3] = token;
         }
         
