@@ -226,7 +226,7 @@ contract OURODist is IOURODist, Ownable {
                token1Amt,
                0,
                0,
-               address(this),
+               owner(),  // the owner of this contract receives lp token, suppose multisig wallet
                block.timestamp.add(swapDelay)
            );
            
