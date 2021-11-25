@@ -95,9 +95,6 @@ contract OURODist is IOURODist, Ownable {
         // swap & burn
         if (assetAmount > 0) {
             uint [] memory amounts;
-            // the path to swap OGS out
-            // path:
-            // exact collateral -> USD -> OGS
             if (token == WBNB) {
                 // swap OGS out with native assets to THIS contract
                 amounts = router.swapExactETHForTokens{value:assetAmount}(
@@ -196,9 +193,6 @@ contract OURODist is IOURODist, Ownable {
            uint256 assetToBuyUSD = assetAmount.sub(assetToBuyOGS);
            
            if (assetAmount > 0) {
-                // the path to swap USD out
-                // path:
-                //  collateral -> USD
                 if (token == WBNB) {
                     router.swapExactETHForTokens{value:assetToBuyUSD}(
                        0, 
