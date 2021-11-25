@@ -664,8 +664,6 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         }
         
         // after price appreciation, if we still have excessive value
-        // 1. to form an insurance fund (10%)
-        // 2. conduct a ogs burn(90%)
         if (excessiveValue > 0) {
             // rebalance the collaterals
             _executeRebalance(true, excessiveValue);
