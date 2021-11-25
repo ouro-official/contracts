@@ -812,7 +812,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             } else {
                 address[] memory path;
                 if (token == WBNB) {
-                    // path: token -> BUSD
+                    // path: WBNB -> BUSD
                     path = new address[](2);
                     path[0] = token;
                     path[1] = busdContract;
@@ -850,7 +850,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         }
         
         // allocation b)
-        // conduct a ogs burn
+        // conduct a OGS burning process
         // the path to find how many OGS can be swapped
         address[] memory path;
         if (token == busdContract) {
