@@ -18,8 +18,8 @@ contract OUROReserveTest is OUROReserve {
         return _lookupAssetValueInOURO(priceFeed, assetUnit, amountAsset);
     }
     
-    function testHandleExceesiveValue(uint256 totalCollateralValue, uint256 totalIssuedOUROValue) public onlyOwner {
-        _handleExceesiveValue(totalCollateralValue, totalIssuedOUROValue);
+    function testHandleExcessiveValue(uint256 totalCollateralValue, uint256 totalIssuedOUROValue) public onlyOwner {
+        _handleExcessiveValue(totalCollateralValue, totalIssuedOUROValue);
     }
     
     function testExecuteRebalance(bool buyOGS, uint256 valueDeviates) public onlyOwner {
@@ -32,11 +32,6 @@ contract OUROReserveTest is OUROReserve {
         
     function testbuybackCollateral(address token ,address vTokenAddress, uint256 assetUnit, AggregatorV3Interface priceFeed, uint256 slotValue) public onlyOwner {
         _buybackCollateral(token, vTokenAddress, assetUnit, priceFeed, slotValue);
-    }
-    
-    function testSetRebasePeriod(uint period) external onlyOwner {
-        require(period > 0, "period 0");
-        rebasePeriod = period;
     }
             
     function testSetPriceLimitResetPeriod(uint period) external onlyOwner {

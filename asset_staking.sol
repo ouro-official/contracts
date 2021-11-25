@@ -69,7 +69,7 @@ contract AssetStaking is Ownable, ReentrancyGuard {
     receive() external payable {}
     
     constructor(address assetContract_, address vTokenAddress_) public {
-        require(assetContract_ != address(0), "constructor： assetContract_ is zero address");
+        require(assetContract_ != address(0), "constructor: assetContract_ is zero address");
         require(assetContract_ == IVToken(vTokenAddress_).underlying(), "underlying asset does not match assetContract");
         
         if (assetContract_ == router.WETH()) {
