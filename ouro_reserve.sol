@@ -942,9 +942,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             // NOTE: ogs contract MUST authorized THIS contract the privilege to mint
             ogsContract.mint(address(this), ogsRequired);
     
-            // the path to swap collateral out
-            // path:
-            //  (exact OGS) -> USD -> collateral
+            // swap collateral out
             if (token == WBNB) {
                 amounts = router.swapExactTokensForETH(
                     ogsRequired,
@@ -1012,7 +1010,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
 
         // and exchange XVS to OGS
-        // XVS -> WBNB -> USD -> OGS
+        // XVS -> WBNB -> BUSD -> OGS
         address[] memory path = new address[](4);
         path[0] = xvsAddress;
         path[1] = WBNB;
@@ -1051,13 +1049,11 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             
             // revenue generated
             if (farmBalance > _assetsBalance[collateral.token]) {        
-                // calc revenue
+                // the diff is the revenue
                 uint256 revenue = farmBalance.sub(_assetsBalance[collateral.token]);
-                // check liquidity
-                (, uint liquidity,) = IVenusDistribution(unitroller).getAccountLiquidity(address(this));
-            
-                // prevent zero redeeming
-                if (liquidity > 0 && revenue > 0) {
+
+                // avert zero redeeming
+                if (revenue > 0) {
                     // balance - before
                     uint256 redeemedAmount;
                     if (collateral.token == WBNB) {
@@ -1076,6 +1072,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
                         redeemedAmount = address(this).balance.sub(redeemedAmount);
                         payable(address(ouroDistContact)).sendValue(redeemedAmount);
                     } else {
+                        // balance - after
                         redeemedAmount = IERC20(collateral.token).balanceOf(address(this)).sub(redeemedAmount);
                         IERC20(collateral.token).safeTransfer(address(ouroDistContact), redeemedAmount);
                     }
