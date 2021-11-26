@@ -731,7 +731,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             uint256 slotBuyBackValue = slotValue.mul(valueDeviates)
                                                 .div(totalCollateralValueDeviated);
                                 
-			// non zero check
+            // non zero check
             if (slotBuyBackValue > 0) {
                 // execute different buyback operations
                 if (isExcessive) {
