@@ -301,23 +301,21 @@ contract AssetStaking is Ownable, ReentrancyGuard {
         // setp 1. settle venus XVS reward
         uint256 xvsAmount = IERC20(xvsAddress).balanceOf(address(this));
         IVenusDistribution(unitroller).claimVenus(address(this), venusMarkets);
-        
-        // swap all XVS to staking asset
-        address[] memory path;
-        if (isNativeToken) { // XVS -> WBNB
-            path = new address[](2);
-            path[0] = xvsAddress;
-            path[1] = assetContract;
-        } else { // XVS-> WBNB -> asset
-            path = new address[](3);
-            path[0] = xvsAddress;
-            path[1] = router.WETH(); // use WBNB to bridge
-            path[2] = assetContract;
-        }
-
         xvsAmount = IERC20(xvsAddress).balanceOf(address(this)).sub(xvsAmount);
-        
-        if (xvsAmount > 0 ) {
+
+        if (xvsAmount > 0 ) { 
+            // swap all XVS to staking asset
+            address[] memory path;
+            if (isNativeToken) { // XVS -> WBNB
+                path = new address[](2);
+                path[0] = xvsAddress;
+                path[1] = assetContract;
+            } else { // XVS-> WBNB -> asset
+                path = new address[](3);
+                path[0] = xvsAddress;
+                path[1] = router.WETH(); // use WBNB to bridge
+                path[2] = assetContract;
+            }
             if (isNativeToken) {
                 router.swapExactTokensForETH(
                     xvsAmount, 
