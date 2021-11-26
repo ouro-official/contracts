@@ -48,8 +48,10 @@ contract OURODist is IOURODist, Ownable {
      */
     function revenueArrival(address token, uint256 revenueAmount) external override {
         // lazy approve
-        if (IERC20(token).allowance(address(this), address(router)) == 0) {
-            IERC20(token).safeIncreaseAllowance(address(router), MAX_UINT256);
+        if (token != WBNB) {
+            if (IERC20(token).allowance(address(this), address(router)) == 0) {
+                IERC20(token).safeIncreaseAllowance(address(router), MAX_UINT256);
+            }
         }
         
         // 50% - OGS token buy back and burn.
