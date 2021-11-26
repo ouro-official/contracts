@@ -147,6 +147,7 @@ contract AssetStaking is Ownable, ReentrancyGuard {
         if (isNativeToken) {
             amount = msg.value;
         }
+        require(amount > 0, "zero deposit");
         
         // settle previous rewards
         settleStaker(msg.sender);
