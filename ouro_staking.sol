@@ -78,6 +78,7 @@ contract OUROStaking is Ownable, ReentrancyGuard {
      * @dev stake OURO
      */
     function deposit(uint256 amount) external nonReentrant {
+        require(amount > 0, "zero deposit");
         // settle previous rewards
         _settleStaker(msg.sender);
         
