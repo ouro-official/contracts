@@ -732,7 +732,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
                                                 .div(totalCollateralValueDeviated);
                                 
 			// non zero check
-			if (slotBuyBackValue > 0) {
+            if (slotBuyBackValue > 0) {
                 // execute different buyback operations
                 if (isExcessive) {
                     _buybackOGS(
@@ -751,7 +751,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
                         slotBuyBackValue
                     );
                 }
-    		}
+            }
             
             // update the collateral price to lastest
             collateral.lastPrice = newPrice;
