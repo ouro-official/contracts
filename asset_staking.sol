@@ -83,11 +83,13 @@ contract AssetStaking is Ownable, ReentrancyGuard {
         venusMarkets.push(vTokenAddress_);
         IVenusDistribution(unitroller).enterMarkets(venusMarkets);
 
-        // approve asset to OURO reserve
-        IERC20(assetContract_).safeApprove(ouroReserveAddress, MAX_UINT256); 
+        if (!isNativeToken) {
+            // approve asset to OURO reserve
+            IERC20(assetContract_).safeApprove(ouroReserveAddress, MAX_UINT256); 
 
-        // approve asset to vToken
-        IERC20(assetContract_).safeApprove(vTokenAddress_, MAX_UINT256);
+            // approve asset to vToken
+            IERC20(assetContract_).safeApprove(vTokenAddress_, MAX_UINT256);
+        }
         
         // approve XVS to router
         IERC20(xvsAddress).safeApprove(address(router), MAX_UINT256); 
@@ -97,15 +99,16 @@ contract AssetStaking is Ownable, ReentrancyGuard {
      * @dev reset allowances
      */
     function resetAllowances() external onlyOwner {
-        
-        // re-approve asset to OURO reserve
-        IERC20(assetContract).safeApprove(ouroReserveAddress, 0); 
-        IERC20(assetContract).safeIncreaseAllowance(ouroReserveAddress, MAX_UINT256);
-        
-        // re-approve asset to vToken
-        IERC20(assetContract).safeApprove(vTokenAddress, 0);
-        IERC20(assetContract).safeIncreaseAllowance(vTokenAddress, MAX_UINT256);
-        
+        if (!isNativeToken) {
+            // re-approve asset to OURO reserve
+            IERC20(assetContract).safeApprove(ouroReserveAddress, 0); 
+            IERC20(assetContract).safeIncreaseAllowance(ouroReserveAddress, MAX_UINT256);
+            
+            // re-approve asset to vToken
+            IERC20(assetContract).safeApprove(vTokenAddress, 0);
+            IERC20(assetContract).safeIncreaseAllowance(vTokenAddress, MAX_UINT256);
+        }
+            
         // re-approve XVS to router
         IERC20(xvsAddress).safeApprove(address(router), 0); 
         IERC20(xvsAddress).safeApprove(address(router), MAX_UINT256);
