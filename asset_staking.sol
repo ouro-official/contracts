@@ -146,7 +146,7 @@ contract AssetStaking is Ownable, ReentrancyGuard {
         }
         
         // settle previous rewards
-        settleStaker(msg.sender, false);
+        settleStaker(msg.sender);
         
         // modify balance
         _balances[msg.sender] = _balances[msg.sender].add(amount);
@@ -169,7 +169,7 @@ contract AssetStaking is Ownable, ReentrancyGuard {
      */
     function claimOGSRewards() external nonReentrant {
         // settle previous rewards
-        settleStaker(msg.sender, true);
+        settleStaker(msg.sender);
         
         // reward balance modification
         uint amountReward = _ogsRewardBalance[msg.sender];
@@ -187,7 +187,7 @@ contract AssetStaking is Ownable, ReentrancyGuard {
      */
     function claimOURORewards() external nonReentrant {
         // settle previous rewards
-        settleStaker(msg.sender, true);
+        settleStaker(msg.sender);
         
         // reward balance modification
         uint amountReward = _ouroRewardBalance[msg.sender];
@@ -207,7 +207,7 @@ contract AssetStaking is Ownable, ReentrancyGuard {
         require(amount <= _balances[msg.sender], "balance exceeded");
 
         // settle previous rewards
-        settleStaker(msg.sender, true);
+        settleStaker(msg.sender);
 
         // modifiy
         _balances[msg.sender] = _balances[msg.sender].sub(amount);
@@ -230,11 +230,9 @@ contract AssetStaking is Ownable, ReentrancyGuard {
     /**
      * @dev settle a staker
      */
-    function settleStaker(address account, bool shouldUpdateReward) internal {
+    function settleStaker(address account) internal {
         // update reward snapshot
-        if (shouldUpdateReward) {
-            updateReward();
-        }
+        updateReward();
         
         // settle this account
         uint accountCollateral = _balances[account];
