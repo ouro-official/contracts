@@ -71,6 +71,7 @@ contract LPStaking is Ownable, ReentrancyGuard {
      * @dev stake assets
      */
     function deposit(uint256 amount) external nonReentrant {
+        require(amount > 0, "zero deposit");
         // settle previous rewards
         settleStaker(msg.sender);
         
