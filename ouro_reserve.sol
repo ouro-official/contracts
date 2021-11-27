@@ -558,7 +558,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
     uint public constant rebasePeriod = 1 days;
 
     // multiplier
-    uint internal constant MULTIPLIER = 1e12;
+    uint internal constant MULTIPLIER = 1e18;
     
     /**
      * @dev rebase entry

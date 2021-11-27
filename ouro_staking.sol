@@ -15,7 +15,7 @@ contract OUROStaking is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     
-    uint256 internal constant SHARE_MULTIPLIER = 1e12; // share multiplier to avert division underflow
+    uint256 internal constant SHARE_MULTIPLIER = 1e18; // share multiplier to avert division underflow
     
     address public constant ouroContract = 0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628; 
     address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
