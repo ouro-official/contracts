@@ -399,7 +399,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             _assetsBalance[address(token)] = _assetsBalance[address(token)].sub(amountAsset);
             
             // redeem assets
-            _redeemSupply(collateral.token, collateral.vTokenAddress, amountAsset);
+            _redeemSupply(collateral.vTokenAddress, amountAsset);
                     
             // sufficient asset satisfied! transfer user's equivalent OURO token to this contract directly
             uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amountAsset);
@@ -414,7 +414,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             _assetsBalance[address(token)] = 0;
             
             // insufficient assets, redeem ALL
-            _redeemSupply(collateral.token, collateral.vTokenAddress, assetBalance);
+            _redeemSupply(collateral.vTokenAddress, assetBalance);
 
             // redeemed assets value in OURO
             uint256 redeemedAssetValueInOURO = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, assetBalance);
@@ -497,7 +497,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
     /**
      * @dev redeem assets from farm
      */
-    function _redeemSupply(address token, address vTokenAddress, uint256 amountAsset) internal {
+    function _redeemSupply(address vTokenAddress, uint256 amountAsset) internal {
         require(IVToken(vTokenAddress).redeemUnderlying(amountAsset) == 0, "cannot redeem from venus");
     }
 
@@ -790,7 +790,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         }
         
         // redeem supply from farming
-        _redeemSupply(token, vTokenAddress, collateralToRedeem);
+        _redeemSupply(vTokenAddress, collateralToRedeem);
         
         // balance - after redeeming
         if (token == WBNB) {
