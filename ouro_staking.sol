@@ -6,6 +6,7 @@ import "./library.sol";
 
 interface IOUROVesting {
     function vest(address account, uint256 amount) external;
+    function setPaymentAccount(address paymentAccount) external;
 }
 
 /**
@@ -17,9 +18,9 @@ contract OUROStaking is Ownable, ReentrancyGuard {
     
     uint256 internal constant SHARE_MULTIPLIER = 1e18; // share multiplier to avert division underflow
     
-    address public constant ouroContract = 0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628; 
-    address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
-    address public constant ogsPaymentAccount = 0x1Ee6c29c5654705B122cc867D09b250603b9f93d;
+    address public constant ouroContract = 0x0408185cA2BA22c836E1bd53E351ba2545EFccD0; 
+    address public constant ogsContract = 0x37a6a7c2EE5E58d38Aa0fa6CE0E4235C17D9a516;
+    address public ogsPaymentAccount = 0x1Ee6c29c5654705B122cc867D09b250603b9f93d;
     address public immutable vestingContract;
 
     mapping (address => uint256) private _balances; // tracking staker's value
@@ -64,6 +65,20 @@ contract OUROStaking is Ownable, ReentrancyGuard {
             
         // log
         emit BlockRewardSet(reward);
+    }
+
+    /**
+     * @dev set block reward payment account
+     */
+    function setPaymentAccount(address paymentAccount) external onlyOwner {
+        require(paymentAccount != address(0));
+        ogsPaymentAccount = paymentAccount;
+
+        // log
+        emit PaymentAccountSet(paymentAccount);
+
+        // also, set ouro vesting payment account;
+        IOUROVesting(vestingContract).setPaymentAccount(paymentAccount);
     }
     
     /**
@@ -262,6 +277,7 @@ contract OUROStaking is Ownable, ReentrancyGuard {
      event Withdraw(address account, uint256 amount);
      event RewardVested(address account, uint256 amount);
      event BlockRewardSet(uint256 reward);
+     event PaymentAccountSet(address account);
 }
 
 
@@ -275,8 +291,8 @@ contract OUROVesting is Ownable, IOUROVesting {
     uint256 internal constant DAY = 1 days;
     uint256 internal constant VestingPeriod = DAY * 90;
     
-    address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
-    address public constant ogsPaymentAccount = 0x1Ee6c29c5654705B122cc867D09b250603b9f93d;
+    address public constant ogsContract = 0x37a6a7c2EE5E58d38Aa0fa6CE0E4235C17D9a516;
+    address public ogsPaymentAccount = 0x1Ee6c29c5654705B122cc867D09b250603b9f93d;
     
     // @dev vesting assets are grouped by day
     struct Round {
@@ -335,7 +351,17 @@ contract OUROVesting is Ownable, IOUROVesting {
         emit Vested(account, amount);
     }
     
- 
+     /**
+     * @dev set block reward payment account
+     */
+    function setPaymentAccount(address paymentAccount) external override onlyOwner {
+        require(paymentAccount != address(0));
+        ogsPaymentAccount = paymentAccount;
+
+        // log
+        emit PaymentAccountSet(paymentAccount);
+    }
+
     /**
      * @dev claim unlocked rewards without penalty
      */
@@ -432,4 +458,5 @@ contract OUROVesting is Ownable, IOUROVesting {
     event Penalty(address account, uint256 amount);
     event Vested(address account, uint256 amount);
     event Claimed(address account, uint256 amount);
+    event PaymentAccountSet(address account);
 }

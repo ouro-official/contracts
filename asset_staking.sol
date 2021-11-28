@@ -2,7 +2,7 @@
 
 pragma solidity ^0.6.12;
 
-import "library.sol";
+import "./library.sol";
 
 /**
  * Users can stake CAKE, BNB, BUSD, BTCB to earn free OURO. Assets deposited will be transferred to our yield farming contract, 
@@ -21,10 +21,10 @@ contract AssetStaking is Ownable, ReentrancyGuard {
     address public immutable assetContract; // the asset to stake
     address public immutable vTokenAddress; // venus vToken Address
     
-    address public constant ouroContract = 0x19D11637a7aaD4bB5D1dA500ec4A31087Ff17628;
-    address public constant ogsContract = 0x19F521235CaBAb5347B137f9D85e03D023Ccc76E;
+    address public constant ouroContract = 0x0408185cA2BA22c836E1bd53E351ba2545EFccD0;
+    address public constant ogsContract = 0x37a6a7c2EE5E58d38Aa0fa6CE0E4235C17D9a516;
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
-    address public constant ouroReserveAddress = 0x048CbCd2002f270ab2ABD0C9cC145AdDC0af9D85;
+    address public constant ouroReserveAddress = 0xf998F32b73cF1ff46e649749A9388189DBA629f8;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
 
     // pancake router
