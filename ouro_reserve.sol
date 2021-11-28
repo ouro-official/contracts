@@ -498,11 +498,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev redeem assets from farm
      */
     function _redeemSupply(address token, address vTokenAddress, uint256 amountAsset) internal {
-        if (token == WBNB) {
-            IVBNB(vTokenAddress).redeemUnderlying(amountAsset);
-        } else {
-            IVToken(vTokenAddress).redeemUnderlying(amountAsset);
-        }
+        require(IVToken(vTokenAddress).redeemUnderlying(amountAsset) == 0, "cannot redeem from venus");
     }
 
     /**

@@ -338,24 +338,13 @@ contract AssetStaking is Ownable, ReentrancyGuard {
         }
 
         // step 2.check if farming has assets revenue        
-        uint256 underlyingBalance;
-         if (isNativeToken) {
-            underlyingBalance = IVBNB(vTokenAddress).balanceOfUnderlying(address(this));
-        } else {
-            underlyingBalance = IVToken(vTokenAddress).balanceOfUnderlying(address(this));
-        }
-        
+        uint256 underlyingBalance = IVToken(vTokenAddress).balanceOfUnderlying(address(this));
         if (underlyingBalance > _totalStaked) { 
             // the diff is the assets revenue
             uint256 asssetsRevenue = underlyingBalance.sub(_totalStaked);
-           
             // proceed redeeming
             if (asssetsRevenue > 0) {
-                if (isNativeToken) {
-                    IVBNB(vTokenAddress).redeemUnderlying(asssetsRevenue);
-                } else {
-                    IVToken(vTokenAddress).redeemUnderlying(asssetsRevenue);
-                }
+                _removeSupply(asssetsRevenue);
             }
         }
         
@@ -483,10 +472,10 @@ contract AssetStaking is Ownable, ReentrancyGuard {
     }
     
     /**
-     * @dev remove supply buy redeeming vToken
+     * @dev remove supply by redeeming vToken
      */
     function _removeSupply(uint256 amount) internal {
-        IVToken(vTokenAddress).redeemUnderlying(amount);
+        require(IVToken(vTokenAddress).redeemUnderlying(amount) == 0, "cannot redeem from venus");
     }
     
     /**
