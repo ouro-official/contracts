@@ -1063,6 +1063,8 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
                     }
                     
                     // redeem asset
+                    // NOTE: 
+                    //  just use redeemUnderlying w/o return value check here.
                     IVToken(collateral.vTokenAddress).redeemUnderlying(revenue);
 
                     // get actual revenue redeemed and
@@ -1078,7 +1080,9 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
                     }
                     
                     // notify ouro revenue contract
-                    ouroDistContact.revenueArrival(collateral.token, redeemedAmount);
+                    if (redeemedAmount > 0) {
+                        ouroDistContact.revenueArrival(collateral.token, redeemedAmount);
+                    }
                 }
             }
         }
