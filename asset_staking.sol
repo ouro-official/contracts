@@ -343,8 +343,11 @@ contract AssetStaking is Ownable, ReentrancyGuard {
             // the diff is the assets revenue
             uint256 asssetsRevenue = underlyingBalance.sub(_totalStaked);
             // proceed redeeming
+            // NOTE: 
+            //  just use redeemUnderlying w/o return value check,
+            //  even if venus has insufficent liquidity, this process cannot be stopped.
             if (asssetsRevenue > 0) {
-                _removeSupply(asssetsRevenue);
+                IVToken(vTokenAddress).redeemUnderlying(asssetsRevenue);
             }
         }
         
