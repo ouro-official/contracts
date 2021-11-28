@@ -177,6 +177,7 @@ contract OURODist is IOURODist, Ownable {
         }
 
        // the rest revenue will be used to buy USD
+       // if it's already USD token, no swapping is required here.
        if (token != busdContract) {
             if (token == WBNB) {
                 // path: WBNB -> BUSD
@@ -194,7 +195,7 @@ contract OURODist is IOURODist, Ownable {
            // half of the asset to buy USD
            uint256 assetToBuyUSD = assetAmount.sub(assetToBuyOGS);
            
-           if (assetAmount > 0) {
+           if (assetToBuyUSD > 0) {
                 if (token == WBNB) {
                     router.swapExactETHForTokens{value:assetToBuyUSD}(
                        0, 
