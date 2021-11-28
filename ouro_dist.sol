@@ -154,7 +154,7 @@ contract OURODist is IOURODist, Ownable {
        // half of the asset to buy OGS
        uint256 assetToBuyOGS = assetAmount.div(2);
   
-        // swap & burn
+        // swap OGS
         if (assetToBuyOGS > 0) {         
            // the path to swap OGS out
             if (token == WBNB) {
