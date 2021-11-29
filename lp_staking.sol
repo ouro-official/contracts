@@ -8,7 +8,7 @@ import "./library.sol";
 /**
  * @dev LP staking related to OURO/xxx pair
  */
-contract LPStaking is Ownable, ReentrancyGuard {
+contract LPStaking is Ownable, ReentrancyGuard,Pausable {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     
@@ -58,6 +58,16 @@ contract LPStaking is Ownable, ReentrancyGuard {
         // log
         emit BlockRewardSet(reward);
     }
+
+    /**
+     * @dev called by the owner to pause, triggers stopped state
+     **/
+    function pause() onlyOwner external { _pause(); }
+
+    /**
+    * @dev called by the owner to unpause, returns to normal state
+    */
+    function unpause() onlyOwner external { _unpause(); }
     
     /**
      * ======================================================================================
@@ -70,7 +80,7 @@ contract LPStaking is Ownable, ReentrancyGuard {
     /**
      * @dev stake assets
      */
-    function deposit(uint256 amount) external nonReentrant {
+    function deposit(uint256 amount) external nonReentrant whenNotPaused {
         require(amount > 0, "zero deposit");
         // settle previous rewards
         settleStaker(msg.sender);
@@ -89,7 +99,7 @@ contract LPStaking is Ownable, ReentrancyGuard {
     /**
      * @dev claim rewards
      */
-    function claimRewards() external nonReentrant {
+    function claimRewards() external nonReentrant whenNotPaused {
         // settle previous rewards
         settleStaker(msg.sender);
         

@@ -180,7 +180,7 @@ contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev claim OGS rewards only
      */
-    function claimOGSRewards() external nonReentrant {
+    function claimOGSRewards() external nonReentrant whenNotPaused {
         // settle previous rewards
         settleStaker(msg.sender);
         
@@ -198,7 +198,7 @@ contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev claim OURO rewards only
      */
-    function claimOURORewards() external nonReentrant {
+    function claimOURORewards() external nonReentrant whenNotPaused {
         // settle previous rewards
         settleStaker(msg.sender);
         

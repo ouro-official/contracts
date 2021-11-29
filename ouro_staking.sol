@@ -12,7 +12,7 @@ interface IOUROVesting {
 /**
  * @dev OURO Staking contract
  */
-contract OUROStaking is Ownable, ReentrancyGuard {
+contract OUROStaking is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     
@@ -66,6 +66,7 @@ contract OUROStaking is Ownable, ReentrancyGuard {
         // log
         emit BlockRewardSet(reward);
     }
+    
 
     /**
      * @dev set block reward payment account
@@ -82,6 +83,15 @@ contract OUROStaking is Ownable, ReentrancyGuard {
     }
     
     /**
+     * @dev called by the owner to pause, triggers stopped state
+     **/
+    function pause() onlyOwner external { _pause(); }
+
+    /**
+    * @dev called by the owner to unpause, returns to normal state
+    */
+    function unpause() onlyOwner external { _unpause(); }
+    /**
      * ======================================================================================
      * 
      * STAKING FUNCTIONS
@@ -92,7 +102,7 @@ contract OUROStaking is Ownable, ReentrancyGuard {
     /**
      * @dev stake OURO
      */
-    function deposit(uint256 amount) external nonReentrant {
+    function deposit(uint256 amount) external nonReentrant whenNotPaused {
         require(amount > 0, "zero deposit");
         // settle previous rewards
         _settleStaker(msg.sender);
