@@ -10,7 +10,7 @@ import "./library.sol";
  * claims it, and OURO of equivalent value will be minted thereafter to the user. Users can withdraw any 
  * asset staked with no cost other than incurred BSC transaction fees. 
  */
-contract AssetStaking is Ownable, ReentrancyGuard {
+contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     using Address for address payable;
@@ -131,7 +131,16 @@ contract AssetStaking is Ownable, ReentrancyGuard {
         emit BlockRewardSet(reward);
     }
     
-    
+    /**
+     * @dev called by the owner to pause, triggers stopped state
+     **/
+    function pause() onlyOwner external { _pause(); }
+
+    /**
+    * @dev called by the owner to unpause, returns to normal state
+    */
+    function unpause() onlyOwner external { _unpause(); }
+
     /**
      * ======================================================================================
      * 
@@ -143,7 +152,7 @@ contract AssetStaking is Ownable, ReentrancyGuard {
     /**
      * @dev deposit assets
      */
-    function deposit(uint256 amount) external payable nonReentrant {
+    function deposit(uint256 amount) external payable nonReentrant whenNotPaused {
         if (isNativeToken) {
             amount = msg.value;
         }
