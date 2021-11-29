@@ -790,7 +790,9 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         }
         
         // redeem supply from farming
-        _redeemSupply(vTokenAddress, collateralToRedeem);
+        // NOTE:
+        //  if venus has insufficient liquidity, this will return non 0, but the process continues
+        IVToken(vTokenAddress).redeemUnderlying(collateralToRedeem);
         
         // balance - after redeeming
         if (token == WBNB) {
