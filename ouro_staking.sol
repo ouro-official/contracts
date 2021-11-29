@@ -317,6 +317,9 @@ contract OUROVesting is Ownable, IOUROVesting {
 
     /// @dev current vested rewards    
     mapping (address => uint256) private balances;
+
+    /// @dev keep last lock round for each user
+    mapping (address => int256) public lastLockRounds;
     
     /**
     * ======================================================================================
@@ -357,6 +360,9 @@ contract OUROVesting is Ownable, IOUROVesting {
         rounds[currentRound].balances[account] += amount;
         balances[account] += amount;
         
+        // keep latest vest round
+        lastLockRounds[account] = currentRound;
+
         // emit amount vested
         emit Vested(account, amount);
     }
@@ -397,7 +403,7 @@ contract OUROVesting is Ownable, IOUROVesting {
 
         // reset balances which still locked to 0
         uint256 earliestVestedDate = block.timestamp - VestingPeriod;
-        for (int256 i= currentRound; i>=0; i--) {
+        for (int256 i = lastLockRounds[msg.sender]; i>=0; i--) {
             if (rounds[i].startDate < earliestVestedDate) {
                 break;
             } else {
@@ -440,7 +446,7 @@ contract OUROVesting is Ownable, IOUROVesting {
     function checkLocked(address account) public view returns(uint256) {
         uint256 earliestVestedDate = block.timestamp - VestingPeriod;
         uint256 lockedAmount;
-        for (int256 i= currentRound; i>=0; i--) {
+        for (int256 i = lastLockRounds[account]; i>=0; i--) {
             if (rounds[i].startDate < earliestVestedDate) {
                 break;
             } else {
