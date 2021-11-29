@@ -561,8 +561,8 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * public method for all external caller
      */
     function rebase() public {
-        // only from EOA
-        require(!msg.sender.isContract() && msg.sender == tx.origin);
+        // only from EOA or owner address
+        require((msg.sender == owner()) || (!msg.sender.isContract() && msg.sender == tx.origin));
 
         // rebase period check for non-owner
         // owner of this contract has the right to rebase without period check
