@@ -69,9 +69,7 @@ contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
     receive() external payable {}
     
     constructor(address assetContract_, address vTokenAddress_) public {
-        require(assetContract_ != address(0), "constructor: assetContract_ is zero address");
-        require(assetContract_ == IVToken(vTokenAddress_).underlying(), "underlying asset does not match assetContract");
-        
+        require(assetContract_ != address(0), "constructor: assetContract_ is zero address");        
         if (assetContract_ == router.WETH()) {
             isNativeToken = true;
         }
@@ -84,6 +82,9 @@ contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
         IVenusDistribution(unitroller).enterMarkets(venusMarkets);
 
         if (!isNativeToken) {
+            // check underlying asset for non native token
+            require(assetContract_ == IVToken(vTokenAddress_).underlying(), "underlying asset does not match assetContract");
+
             // approve asset to OURO reserve
             IERC20(assetContract_).safeApprove(ouroReserveAddress, MAX_UINT256); 
 
