@@ -159,7 +159,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev set fund of last resort address
      */
     function setLastResortFund(address account) external onlyOwner {
-        require(account != address(0), "account zero");
+        require(account != address(0), "0x0");
         lastResortFund = account;
         emit LastResortFundSet(account);
     }
@@ -177,7 +177,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         (, bool exist) = _findCollateral(token);
         require(!exist, "exist");
         if (address(token) != WBNB) {
-            require(IVToken(vTokenAddress).underlying() == token, "vTokenAddress.underlying != token");
+            require(IVToken(vTokenAddress).underlying() == token, "vtoken mismatch");
         }
 
         uint256 currentPrice = getAssetPrice(priceFeed);
@@ -281,7 +281,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
       * in case of severe bug
       */
      function changeOURODist(address newContract) external onlyOwner {
-         require (IOURODist(newContract).isDist(), "not a dist contract");
+         require (IOURODist(newContract).isDist());
          ouroDistContact = IOURODist(newContract);
          
          emit OuroDistChanged(newContract);
@@ -304,6 +304,23 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         
         emit WhiteListSet(account, allow);
     }
+
+    /**
+     * @dev emergency withdraw the vTokens, only when severe contract vulnerability found.
+     */
+    function emergencyWithdraw(address to) external onlyOwner {
+        uint n = collaterals.length;
+        for (uint i=0;i<n;i++) {            
+            // withdraw all tokens
+            uint256 amount = IERC20(collaterals[i].vTokenAddress).balanceOf(address(this));
+            if (amount > 0) {
+                IERC20(collaterals[i].vTokenAddress).safeTransfer(to, amount);
+            }
+        }
+
+        // log
+        emit EmergencyWithdraw(msg.sender, to);
+    }
     
     /**
      * ======================================================================================
@@ -322,7 +339,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
-        require(valid, "invalid collateral");
+        require(valid);
 
         // for native token, replace amountAsset with use msg.value instead
         if (token == WBNB) {
@@ -330,7 +347,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         }
         
         // non-0 deposit check
-        require(amountAsset > 0, "0 deposit");
+        require(amountAsset > 0);
 
         // get equivalent OURO value
         uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amountAsset);
@@ -384,11 +401,11 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      */
     function withdraw(address token, uint256 amountAsset) external override nonReentrant returns (uint256 OUROTaken) {
         // non 0 check
-        require(amountAsset > 0 , "0 withdraw");
+        require(amountAsset > 0);
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
-        require(valid, "not a collateral");
+        require(valid);
                                                     
         // check if we have sufficient assets to return to user
         uint256 assetBalance = _assetsBalance[address(token)];
@@ -498,7 +515,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev redeem assets from farm
      */
     function _redeemSupply(address vTokenAddress, uint256 amountAsset) internal {
-        require(IVToken(vTokenAddress).redeemUnderlying(amountAsset) == 0, "cannot redeem from venus");
+        require(IVToken(vTokenAddress).redeemUnderlying(amountAsset) == 0,"venus redeem failed");
     }
 
     /**
@@ -567,7 +584,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         // rebase period check for non-owner
         // owner of this contract has the right to rebase without period check
         if (msg.sender != owner()) {
-            require(block.timestamp > lastRebaseTimestamp + rebasePeriod, "aggressive rebase");
+            require(block.timestamp > lastRebaseTimestamp + rebasePeriod, "aggressive");
         }
                 
         // update rebase time
@@ -1112,4 +1129,5 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      event OuroDistChanged(address account);
      event WhiteListToggled(bool enabled);
      event WhiteListSet(address account, bool allow);
+     event EmergencyWithdraw(address account, address to);
 }
