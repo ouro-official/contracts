@@ -227,16 +227,29 @@ contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
         _balances[msg.sender] = _balances[msg.sender].sub(amount);
         _totalStaked = _totalStaked.sub(amount);
         
-        // redeem supply from venus
-        _removeSupply(amount);
-        
-        // transfer assets back
-        if (!isNativeToken) {
-            IERC20(assetContract).safeTransfer(msg.sender, amount);
+        // balance - before
+        uint256 numRedeemed;
+        if (isNativeToken) {
+            numRedeemed = address(this).balance;
         } else {
-            msg.sender.sendValue(amount);
+            numRedeemed = IERC20(assetContract).balanceOf(address(this));
         }
-        
+
+        // redeem supply from venus
+        // NOTE:
+        //  venus may return less than amount
+        _removeSupply(amount);
+
+        if (isNativeToken) {    
+            // balance - after
+            numRedeemed = address(this).balance.sub(numRedeemed);
+            // transfer assets back
+            msg.sender.sendValue(numRedeemed);
+        } else { // ERC20
+            numRedeemed = IERC20(assetContract).balanceOf(address(this)).sub(numRedeemed);
+            IERC20(assetContract).safeTransfer(msg.sender, numRedeemed);
+        }
+
         // log
         emit Withdraw(msg.sender, amount);
     }
