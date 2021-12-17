@@ -399,7 +399,21 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev user swap his OURO back to assets
      * @notice users need approve() OURO assets to this contract
      */
-    function withdraw(address token, uint256 amountAsset) external override nonReentrant returns (uint256 OUROTaken) {
+    function withdraw(address token, uint256 amountAsset) external override nonReentrant returns (uint256 OUROTaken) { return withdrawMin(token, amountAsset, 0); }
+    
+    /**
+     * @dev user swap his OURO back to assets
+     * @notice users need approve() OURO assets to this contract
+     */
+    function withdrawMin(address token, uint256 amountAsset, uint256 minAmountAssset) public override nonReentrant returns (uint256 OUROTaken) {
+        // current token balance of user
+        uint256 userBalance;
+        if (token == WBNB) {
+            userBalance = address(msg.sender).balance;
+        } else {
+            userBalance = IERC20(token).balanceOf(msg.sender);
+        }
+
         // non 0 check
         require(amountAsset > 0);
         
@@ -503,7 +517,15 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             uint256 value = IERC20(token).balanceOf(address(this)) < amountAsset? IERC20(token).balanceOf(address(this)):amountAsset;
             IERC20(token).safeTransfer(msg.sender, value);
         }
-        
+
+        // minimum redeem check
+        if (token == WBNB) {
+            userBalance = address(msg.sender).balance.sub(userBalance);
+        } else {
+            userBalance = IERC20(token).balanceOf(msg.sender).sub(userBalance);
+        }
+        require(userBalance >= minAmountAssset);
+
         // log withdraw
         emit Withdraw(msg.sender, address(token), amountAsset);
         

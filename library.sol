@@ -589,11 +589,15 @@ contract Ownable is Context {
         return _owner;
     }
 
+    function _onlyOwner() view private {
+        require(_owner == _msgSender(), "Ownable: caller is not the owner");
+    }
+
     /**
      * @dev Throws if called by any account other than the owner.
      */
     modifier onlyOwner() {
-        require(_owner == _msgSender(), "Ownable: caller is not the owner");
+        _onlyOwner();
         _;
     }
 
@@ -1055,6 +1059,7 @@ interface IOUROReserve {
     function getPrice() external view returns(uint256);
     function deposit(address token, uint256 amountAsset) external payable returns (uint256 OUROMinted);
     function withdraw(address token, uint256 amountAsset) external returns(uint256 OUROTaken);
+    function withdrawMin(address token, uint256 amountAsset, uint256 minAmountAssset) external returns(uint256 OUROTaken);
 }
 
 interface IOURODist {
