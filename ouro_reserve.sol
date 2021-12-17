@@ -104,7 +104,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             );
         }
     }
-            
+
     /** 
      * @dev get system defined OURO price
      */
@@ -118,7 +118,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         (, int latestPrice, , , ) = feed.latestRoundData();
 
         // avert negative price
-        require (latestPrice > 0, "invalid price");
+        _require(latestPrice > 0, "invalid price");
         
         // return price corrected to USD decimal
         // always align the price to USD decimal, which is 1e18 on BSC and 1e6 on Ethereum
@@ -136,12 +136,21 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      */
      
     receive() external payable {}
+    
+    // code size cheaper version of require
+    function _require(bool condition, string memory text) private pure {
+        require (condition, text);
+    }
+    
+    function _require(bool condition) private pure {
+        require (condition);
+    }
 
-    // check whitelist
+
     modifier checkWhiteList() {
         if (whiteListEnabled) {
-            require(_whitelist[msg.sender],"not in whitelist");
-        }
+            _require(_whitelist[msg.sender],"not in whitelist");
+        }        
         _;
     }
     
@@ -159,7 +168,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev set fund of last resort address
      */
     function setLastResortFund(address account) external onlyOwner {
-        require(account != address(0), "0x0");
+        _require(account != address(0), "0x0");
         lastResortFund = account;
         emit LastResortFundSet(account);
     }
@@ -175,9 +184,9 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         ) external onlyOwner
     {
         (, bool exist) = _findCollateral(token);
-        require(!exist, "exist");
+        _require(!exist, "exist");
         if (address(token) != WBNB) {
-            require(IVToken(vTokenAddress).underlying() == token, "vtoken mismatch");
+            _require(IVToken(vTokenAddress).underlying() == token, "vtoken mismatch");
         }
 
         uint256 currentPrice = getAssetPrice(priceFeed);
@@ -281,7 +290,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
       * in case of severe bug
       */
      function changeOURODist(address newContract) external onlyOwner {
-         require (IOURODist(newContract).isDist());
+         _require (IOURODist(newContract).isDist());
          ouroDistContact = IOURODist(newContract);
          
          emit OuroDistChanged(newContract);
@@ -339,7 +348,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
-        require(valid);
+        _require(valid);
 
         // for native token, replace amountAsset with use msg.value instead
         if (token == WBNB) {
@@ -347,7 +356,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         }
         
         // non-0 deposit check
-        require(amountAsset > 0);
+        _require(amountAsset > 0);
 
         // get equivalent OURO value
         uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amountAsset);
@@ -355,7 +364,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         // check periodical OURO issuance limit
         uint periodN = block.timestamp.sub(issueFrom).div(ouroIssuePeriod);
         if (periodN < issueSchedule.length) { // still in control
-            require(assetValueInOuro.add(IERC20(ouroContract).totalSupply()) 
+            _require(assetValueInOuro.add(IERC20(ouroContract).totalSupply()) 
                         <=
                     uint256(issueSchedule[periodN]).mul(issueUnit),
                     "limited"
@@ -415,11 +424,11 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         }
 
         // non 0 check
-        require(amountAsset > 0);
+        _require(amountAsset > 0);
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
-        require(valid);
+        _require(valid);
                                                     
         // check if we have sufficient assets to return to user
         uint256 assetBalance = _assetsBalance[address(token)];
@@ -524,7 +533,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         } else {
             userBalance = IERC20(token).balanceOf(msg.sender).sub(userBalance);
         }
-        require(userBalance >= minAmountAssset);
+        _require(userBalance >= minAmountAssset);
 
         // log withdraw
         emit Withdraw(msg.sender, address(token), amountAsset);
@@ -537,7 +546,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev redeem assets from farm
      */
     function _redeemSupply(address vTokenAddress, uint256 amountAsset) internal {
-        require(IVToken(vTokenAddress).redeemUnderlying(amountAsset) == 0,"venus redeem failed");
+        _require(IVToken(vTokenAddress).redeemUnderlying(amountAsset) == 0,"venus redeem failed");
     }
 
     /**
@@ -601,12 +610,12 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      */
     function rebase() public {
         // only from EOA or owner address
-        require((msg.sender == owner()) || (!msg.sender.isContract() && msg.sender == tx.origin));
+        _require((msg.sender == owner()) || (!msg.sender.isContract() && msg.sender == tx.origin));
 
         // rebase period check for non-owner
         // owner of this contract has the right to rebase without period check
         if (msg.sender != owner()) {
-            require(block.timestamp > lastRebaseTimestamp + rebasePeriod, "aggressive");
+            _require(block.timestamp > lastRebaseTimestamp + rebasePeriod, "aggressive");
         }
                 
         // update rebase time
@@ -1028,7 +1037,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
       */
      function distributeRevenue() external {
          // only from EOA
-         require(!msg.sender.isContract() && msg.sender == tx.origin);
+         _require(!msg.sender.isContract() && msg.sender == tx.origin);
          
          _distributeXVS();
          _distributeAssetRevenue();
