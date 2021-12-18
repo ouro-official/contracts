@@ -348,7 +348,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
-        _require(valid);
+        _require(valid, "invalid collateral");
 
         // for native token, replace amountAsset with use msg.value instead
         if (token == WBNB) {
@@ -356,7 +356,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         }
         
         // non-0 deposit check
-        _require(amountAsset > 0);
+        _require(amountAsset > 0, "0 deposit");
 
         // get equivalent OURO value
         uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amountAsset);
@@ -424,11 +424,11 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         }
 
         // non 0 check
-        _require(amountAsset > 0);
+        _require(amountAsset > 0, "0 withdraw");
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
-        _require(valid);
+        _require(valid, "invalid collateral");
                                                     
         // check if we have sufficient assets to return to user
         uint256 assetBalance = _assetsBalance[address(token)];
@@ -533,7 +533,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         } else {
             userBalance = IERC20(token).balanceOf(msg.sender).sub(userBalance);
         }
-        _require(userBalance >= minAmountAssset);
+        _require(userBalance >= minAmountAssset, "min");
 
         // log withdraw
         emit Withdraw(msg.sender, address(token), amountAsset);
