@@ -118,7 +118,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         (, int latestPrice, , , ) = feed.latestRoundData();
 
         // avert negative price
-        _require(latestPrice > 0, "invalid price");
+        _require(latestPrice > 0, "price <=0");
         
         // return price corrected to USD decimal
         // always align the price to USD decimal, which is 1e18 on BSC and 1e6 on Ethereum
@@ -149,7 +149,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
 
     modifier checkWhiteList() {
         if (whiteListEnabled) {
-            _require(_whitelist[msg.sender],"not in whitelist");
+            _require(_whitelist[msg.sender]);
         }        
         _;
     }
@@ -168,7 +168,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev set fund of last resort address
      */
     function setLastResortFund(address account) external onlyOwner {
-        _require(account != address(0), "0x0");
+        _require(account != address(0), "0");
         lastResortFund = account;
         emit LastResortFundSet(account);
     }
@@ -186,7 +186,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         (, bool exist) = _findCollateral(token);
         _require(!exist, "exist");
         if (address(token) != WBNB) {
-            _require(IVToken(vTokenAddress).underlying() == token, "vtoken mismatch");
+            _require(IVToken(vTokenAddress).underlying() == token, "vtoken");
         }
 
         uint256 currentPrice = getAssetPrice(priceFeed);
@@ -338,17 +338,31 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      *
      * ======================================================================================
      */
+    function depositMin(address token, uint256 amountAsset, uint256 minAmountOuro) external override payable returns (uint256 OUROMinted) {
+        // ouro balance of user BEFORE deposit
+        uint256 ouroBalance = IERC20(ouroContract).balanceOf(msg.sender);
 
+        // deposit
+        uint256 minted = deposit(token, amountAsset); 
+
+        // diff of ouro balance of user AFTER deposit
+        ouroBalance = IERC20(ouroContract).balanceOf(msg.sender).sub(ouroBalance);
+
+        _require(ouroBalance >= minAmountOuro);
+
+        return minted;
+    }
+    
     /**
      * @dev user deposit assets and receive OURO
      * @notice users need approve() assets to this contract
      * returns OURO minted
      */
-    function deposit(address token, uint256 amountAsset) external override payable checkWhiteList nonReentrant returns (uint256 OUROMinted) {
+    function deposit(address token, uint256 amountAsset) public override payable checkWhiteList nonReentrant returns (uint256 OUROMinted) {
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
-        _require(valid, "invalid collateral");
+        _require(valid);
 
         // for native token, replace amountAsset with use msg.value instead
         if (token == WBNB) {
@@ -356,7 +370,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         }
         
         // non-0 deposit check
-        _require(amountAsset > 0, "0 deposit");
+        _require(amountAsset > 0);
 
         // get equivalent OURO value
         uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amountAsset);
@@ -420,13 +434,13 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         // withdraw
         uint256 taken = withdraw(token, amountAsset); 
 
-        // token balance of user AFTER withdraw
+        // diff of token balance of user AFTER withdraw
         if (token == WBNB) {
             userBalance = address(msg.sender).balance.sub(userBalance);
         } else {
             userBalance = IERC20(token).balanceOf(msg.sender).sub(userBalance);
         }
-        _require(userBalance >= minAmountAssset, "min");
+        _require(userBalance >= minAmountAssset);
 
         return taken;
     }
@@ -437,11 +451,11 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      */
     function withdraw(address token, uint256 amountAsset) public override nonReentrant returns (uint256 OUROTaken) {
         // non 0 check
-        _require(amountAsset > 0, "0 withdraw");
+        _require(amountAsset > 0);
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
-        _require(valid, "invalid collateral");
+        _require(valid);
                                                     
         // check if we have sufficient assets to return to user
         uint256 assetBalance = _assetsBalance[address(token)];
@@ -551,7 +565,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev redeem assets from farm
      */
     function _redeemSupply(address vTokenAddress, uint256 amountAsset) internal {
-        _require(IVToken(vTokenAddress).redeemUnderlying(amountAsset) == 0,"venus redeem failed");
+        _require(IVToken(vTokenAddress).redeemUnderlying(amountAsset) == 0,"venus");
     }
 
     /**
