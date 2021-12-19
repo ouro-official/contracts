@@ -408,14 +408,8 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev user swap his OURO back to assets
      * @notice users need approve() OURO assets to this contract
      */
-    function withdraw(address token, uint256 amountAsset) external override nonReentrant returns (uint256 OUROTaken) { return withdrawMin(token, amountAsset, 0); }
-    
-    /**
-     * @dev user swap his OURO back to assets
-     * @notice users need approve() OURO assets to this contract
-     */
-    function withdrawMin(address token, uint256 amountAsset, uint256 minAmountAssset) public override nonReentrant returns (uint256 OUROTaken) {
-        // current token balance of user
+    function withdrawMin(address token, uint256 amountAsset, uint256 minAmountAssset) external override nonReentrant returns (uint256 OUROTaken) { 
+        // token balance of user BEFORE withdraw
         uint256 userBalance;
         if (token == WBNB) {
             userBalance = address(msg.sender).balance;
@@ -423,6 +417,25 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             userBalance = IERC20(token).balanceOf(msg.sender);
         }
 
+        // withdraw
+        uint256 taken = withdraw(token, amountAsset); 
+
+        // token balance of user AFTER withdraw
+        if (token == WBNB) {
+            userBalance = address(msg.sender).balance.sub(userBalance);
+        } else {
+            userBalance = IERC20(token).balanceOf(msg.sender).sub(userBalance);
+        }
+        _require(userBalance >= minAmountAssset, "min");
+
+        return taken;
+    }
+    
+    /**
+     * @dev user swap his OURO back to assets
+     * @notice users need approve() OURO assets to this contract
+     */
+    function withdraw(address token, uint256 amountAsset) public override nonReentrant returns (uint256 OUROTaken) {
         // non 0 check
         _require(amountAsset > 0, "0 withdraw");
         
@@ -526,14 +539,6 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             uint256 value = IERC20(token).balanceOf(address(this)) < amountAsset? IERC20(token).balanceOf(address(this)):amountAsset;
             IERC20(token).safeTransfer(msg.sender, value);
         }
-
-        // minimum redeem check
-        if (token == WBNB) {
-            userBalance = address(msg.sender).balance.sub(userBalance);
-        } else {
-            userBalance = IERC20(token).balanceOf(msg.sender).sub(userBalance);
-        }
-        _require(userBalance >= minAmountAssset, "min");
 
         // log withdraw
         emit Withdraw(msg.sender, address(token), amountAsset);
