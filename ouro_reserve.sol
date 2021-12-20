@@ -343,7 +343,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @notice users need approve() assets to this contract
      * returns OURO minted
      */
-    function deposit(address token, uint256 amountAsset, uint256 minAmountOuro) public override payable checkWhiteList nonReentrant returns (uint256 OUROMinted) {
+    function deposit(address token, uint256 amountAsset, uint256 minAmountOuro) external override payable checkWhiteList nonReentrant returns (uint256 OUROMinted) {
         // ouro balance of user BEFORE deposit
         uint256 ouroBalance = IERC20(ouroContract).balanceOf(msg.sender);
 
