@@ -1057,10 +1057,8 @@ interface IOUROToken is IERC20 {
 
 interface IOUROReserve {
     function getPrice() external view returns(uint256);
-    function deposit(address token, uint256 amountAsset) external payable returns (uint256 OUROMinted);
-    function depositMin(address token, uint256 amountAsset, uint256 minAmountOuro) external payable returns (uint256 OUROMinted);
-    function withdraw(address token, uint256 amountAsset) external returns(uint256 OUROTaken);
-    function withdrawMin(address token, uint256 amountAsset, uint256 minAmountAssset) external returns(uint256 OUROTaken);
+    function deposit(address token, uint256 amountAsset, uint256 minAmountOuro) external payable returns (uint256 OUROMinted);
+    function withdraw(address token, uint256 amountAsset, uint256 minAmountAssset) external returns(uint256 OUROTaken);
 }
 
 interface IOURODist {

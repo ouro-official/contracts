@@ -338,12 +338,17 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      *
      * ======================================================================================
      */
-    function depositMin(address token, uint256 amountAsset, uint256 minAmountOuro) external override payable returns (uint256 OUROMinted) {
+    /**
+     * @dev user deposit assets and receive OURO
+     * @notice users need approve() assets to this contract
+     * returns OURO minted
+     */
+    function deposit(address token, uint256 amountAsset, uint256 minAmountOuro) public override payable checkWhiteList nonReentrant returns (uint256 OUROMinted) {
         // ouro balance of user BEFORE deposit
         uint256 ouroBalance = IERC20(ouroContract).balanceOf(msg.sender);
 
         // deposit
-        uint256 minted = deposit(token, amountAsset); 
+        uint256 minted = _deposit(token, amountAsset); 
 
         // diff of ouro balance of user AFTER deposit
         ouroBalance = IERC20(ouroContract).balanceOf(msg.sender).sub(ouroBalance);
@@ -352,14 +357,8 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
 
         return minted;
     }
-    
-    /**
-     * @dev user deposit assets and receive OURO
-     * @notice users need approve() assets to this contract
-     * returns OURO minted
-     */
-    function deposit(address token, uint256 amountAsset) public override payable checkWhiteList nonReentrant returns (uint256 OUROMinted) {
-        
+
+    function _deposit(address token, uint256 amountAsset) private returns (uint256 OUROMinted) {
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
         _require(valid);
@@ -422,7 +421,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev user swap his OURO back to assets
      * @notice users need approve() OURO assets to this contract
      */
-    function withdrawMin(address token, uint256 amountAsset, uint256 minAmountAssset) external override nonReentrant returns (uint256 OUROTaken) { 
+    function withdraw(address token, uint256 amountAsset, uint256 minAmountAssset) external override nonReentrant returns (uint256 OUROTaken) { 
         // token balance of user BEFORE withdraw
         uint256 userBalance;
         if (token == WBNB) {
@@ -432,7 +431,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         }
 
         // withdraw
-        uint256 taken = withdraw(token, amountAsset); 
+        uint256 taken = _withdraw(token, amountAsset); 
 
         // diff of token balance of user AFTER withdraw
         if (token == WBNB) {
@@ -449,7 +448,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev user swap his OURO back to assets
      * @notice users need approve() OURO assets to this contract
      */
-    function withdraw(address token, uint256 amountAsset) public override nonReentrant returns (uint256 OUROTaken) {
+    function _withdraw(address token, uint256 amountAsset) private returns (uint256 OUROTaken) {
         // non 0 check
         _require(amountAsset > 0);
         
