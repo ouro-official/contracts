@@ -387,9 +387,9 @@ contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
         if (currentAsset > assetBalance) {
             uint256 diff = currentAsset.sub(assetBalance);
             if (isNativeToken) {
-                IOUROReserve(ouroReserveAddress).deposit{value:diff}(assetContract, 0);
+                IOUROReserve(ouroReserveAddress).deposit{value:diff}(assetContract, 0, 0);
             } else {
-                IOUROReserve(ouroReserveAddress).deposit(assetContract, diff);
+                IOUROReserve(ouroReserveAddress).deposit(assetContract, diff, 0);
             }
         }
         // === END THE DIFF IS THE FARMING REVENUE TO SWAP TO OURO ===
