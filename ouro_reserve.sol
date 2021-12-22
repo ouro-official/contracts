@@ -118,7 +118,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         (, int latestPrice, , , ) = feed.latestRoundData();
 
         // avert negative price
-        _require(latestPrice > 0, "price <=0");
+        _require(latestPrice > 0);
         
         // return price corrected to USD decimal
         // always align the price to USD decimal, which is 1e18 on BSC and 1e6 on Ethereum
@@ -168,7 +168,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev set fund of last resort address
      */
     function setLastResortFund(address account) external onlyOwner {
-        _require(account != address(0), "0");
+        _require(account != address(0));
         lastResortFund = account;
         emit LastResortFundSet(account);
     }
@@ -184,7 +184,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         ) external onlyOwner
     {
         (, bool exist) = _findCollateral(token);
-        _require(!exist, "exist");
+        _require(!exist);
         if (address(token) != WBNB) {
             _require(IVToken(vTokenAddress).underlying() == token, "vtoken");
         }
