@@ -761,7 +761,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             }
             
             // accumulate value in USD
-            totalCollateralValueDeviated += getAssetPrice(collateral.priceFeed)
+            totalCollateralValueDeviated += newPrice
                                                 .mul(_assetsBalance[collateral.token])
                                                 .div(collateral.assetUnit);
         }
@@ -785,7 +785,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
             }
             
             // calc slot value in USD
-            uint256 slotValue = getAssetPrice(collateral.priceFeed)
+            uint256 slotValue = newPrice
                                                 .mul(_assetsBalance[collateral.token])
                                                 .div(collateral.assetUnit);
             
