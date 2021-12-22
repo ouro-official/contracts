@@ -744,7 +744,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         // step 1. sum total deviated collateral value 
         uint256 totalCollateralValueDeviated;
         for (uint i=0;i<collaterals.length;i++) {
-            CollateralInfo storage collateral = collaterals[i];
+            CollateralInfo memory collateral = collaterals[i];
             
             // check new price of the assets & omit those not deviated
             uint256 newPrice = getAssetPrice(collateral.priceFeed);
@@ -768,7 +768,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         
         // step 2. buyback operations in pro-rata basis
         for (uint i=0;i<collaterals.length;i++) {
-            CollateralInfo storage collateral = collaterals[i];
+            CollateralInfo memory collateral = collaterals[i];
         
             // check new price of the assets & omit those not deviated
             uint256 newPrice = getAssetPrice(collateral.priceFeed);
@@ -814,9 +814,11 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
                     );
                 }
             }
-            
-            // update the collateral price to lastest
-            collateral.lastPrice = newPrice;
+        }
+
+        // step 3. update price reference point
+        for (uint i=0;i<collaterals.length;i++) {
+            collaterals[i].lastPrice = getAssetPrice(collaterals[i].priceFeed);
         }
     }
 
@@ -826,7 +828,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
     function _getTotalCollateralValue() internal view returns(uint256) {
         uint256 totalCollateralValue;
         for (uint i=0;i<collaterals.length;i++) {
-            CollateralInfo storage collateral = collaterals[i];
+            CollateralInfo memory collateral = collaterals[i];
             totalCollateralValue += getAssetPrice(collateral.priceFeed)
                                     .mul(_assetsBalance[collateral.token])
                                     .div(collateral.assetUnit);
@@ -1111,7 +1113,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         // distribute assets revenue 
         uint n = collaterals.length;
         for (uint i=0;i<n;i++) {
-            CollateralInfo storage collateral = collaterals[i];
+            CollateralInfo memory collateral = collaterals[i];
             // get underlying balance
             uint256 farmBalance = IVToken(collateral.vTokenAddress).balanceOfUnderlying(address(this));
             
