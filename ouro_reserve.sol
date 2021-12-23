@@ -955,7 +955,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
                 );
                 
             } else {
-                amounts =router.swapExactTokensForTokens(
+                amounts = router.swapExactTokensForTokens(
                     assetToBuyBackOGS,
                     0, 
                     path, 
@@ -1122,37 +1122,34 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
                 // the diff is the revenue
                 uint256 revenue = farmBalance.sub(_assetsBalance[collateral.token]);
 
-                // avert zero redeeming
-                if (revenue > 0) {
-                    // balance - before
-                    uint256 redeemedAmount;
-                    if (collateral.token == WBNB) {
-                        redeemedAmount = address(this).balance;
-                    } else {
-                        redeemedAmount = IERC20(collateral.token).balanceOf(address(this));
-                    }
-                    
-                    // redeem asset
-                    // NOTE: 
-                    //  just use redeemUnderlying w/o return value check here.
-                    IVToken(collateral.vTokenAddress).redeemUnderlying(revenue);
+                // balance - before
+                uint256 redeemedAmount;
+                if (collateral.token == WBNB) {
+                    redeemedAmount = address(this).balance;
+                } else {
+                    redeemedAmount = IERC20(collateral.token).balanceOf(address(this));
+                }
+                
+                // redeem asset
+                // NOTE: 
+                //  just use redeemUnderlying w/o return value check here.
+                IVToken(collateral.vTokenAddress).redeemUnderlying(revenue);
 
-                    // get actual revenue redeemed and
-                    // transfer asset to ouro revenue distribution contract
-                    if (collateral.token == WBNB) {
-                        // balance - after
-                        redeemedAmount = address(this).balance.sub(redeemedAmount);
-                        payable(address(ouroDistContact)).sendValue(redeemedAmount);
-                    } else {
-                        // balance - after
-                        redeemedAmount = IERC20(collateral.token).balanceOf(address(this)).sub(redeemedAmount);
-                        IERC20(collateral.token).safeTransfer(address(ouroDistContact), redeemedAmount);
-                    }
-                    
-                    // notify ouro revenue contract
-                    if (redeemedAmount > 0) {
-                        ouroDistContact.revenueArrival(collateral.token, redeemedAmount);
-                    }
+                // get actual revenue redeemed and
+                // transfer asset to ouro revenue distribution contract
+                if (collateral.token == WBNB) {
+                    // balance - after
+                    redeemedAmount = address(this).balance.sub(redeemedAmount);
+                    payable(address(ouroDistContact)).sendValue(redeemedAmount);
+                } else {
+                    // balance - after
+                    redeemedAmount = IERC20(collateral.token).balanceOf(address(this)).sub(redeemedAmount);
+                    IERC20(collateral.token).safeTransfer(address(ouroDistContact), redeemedAmount);
+                }
+                
+                // notify ouro revenue contract
+                if (redeemedAmount > 0) {
+                    ouroDistContact.revenueArrival(collateral.token, redeemedAmount);
                 }
             }
         }
