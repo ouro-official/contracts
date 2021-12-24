@@ -421,137 +421,49 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev user swap his OURO back to assets
      * @notice users need approve() OURO assets to this contract
      */
-    function withdraw(address token, uint256 amountAsset, uint256 minAmountAssset) external override nonReentrant returns (uint256 OUROTaken) { 
-        // token balance of user BEFORE withdraw
-        uint256 userBalance;
-        if (token == WBNB) {
-            userBalance = address(msg.sender).balance;
-        } else {
-            userBalance = IERC20(token).balanceOf(msg.sender);
-        }
-
-        // withdraw
-        uint256 taken = _withdraw(token, amountAsset); 
-
-        // diff of token balance of user AFTER withdraw
-        if (token == WBNB) {
-            userBalance = address(msg.sender).balance.sub(userBalance);
-        } else {
-            userBalance = IERC20(token).balanceOf(msg.sender).sub(userBalance);
-        }
-        _require(userBalance >= minAmountAssset);
-
-        return taken;
-    }
-    
-    /**
-     * @dev user swap his OURO back to assets
-     * @notice users need approve() OURO assets to this contract
-     */
-    function _withdraw(address token, uint256 amountAsset) private returns (uint256 OUROTaken) {
+    function withdraw(address token, uint256 amountAsset) external override nonReentrant returns (uint256 OUROTaken) { 
         // non 0 check
         _require(amountAsset > 0);
+        _require(_assetsBalance[token] > 0);
         
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
         _require(valid);
-                                                    
-        // check if we have sufficient assets to return to user
-        uint256 assetBalance = _assetsBalance[address(token)];
 
-        // perform OURO token burn
-        if (assetBalance >= amountAsset) {
-            // substract asset balance
-            _assetsBalance[address(token)] = _assetsBalance[address(token)].sub(amountAsset);
-            
-            // redeem assets
-            _redeemSupply(collateral.vTokenAddress, amountAsset);
-                    
-            // sufficient asset satisfied! transfer user's equivalent OURO token to this contract directly
-            uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amountAsset);
-            IERC20(ouroContract).safeTransferFrom(msg.sender, address(this), assetValueInOuro);
-            OUROTaken = assetValueInOuro;
-            
-            // and burn OURO.
-            IOUROToken(ouroContract).burn(assetValueInOuro);
+        // CAP amountAsset to maximum available
+        amountAsset = amountAsset > _assetsBalance[token] ? _assetsBalance[token]: amountAsset;
 
-        } else {
-            // drain asset balance
-            _assetsBalance[address(token)] = 0;
-            
-            // insufficient assets, redeem ALL
-            _redeemSupply(collateral.vTokenAddress, assetBalance);
-
-            // redeemed assets value in OURO
-            uint256 redeemedAssetValueInOURO = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, assetBalance);
-            
-            // as we don't have enough assets to return to user
-            // we buy extra assets from swaps with user's OURO
-            uint256 extraAssets = amountAsset.sub(assetBalance);
-    
-            // find how many extra OUROs required to swap the extra assets out
-            address[] memory path;
-            if (token == busdContract) {
-                // path: ouro -> BUSD
-                path = new address[](2);
-                path[0] = address(ouroContract);
-                path[1] = token;
-            } else if (token == WBNB) {
-                // path: ouro -> BUSD -> WBNB
-                path = new address[](3);
-                path[0] = address(ouroContract);
-                path[1] = busdContract; 
-                path[2] = token; 
-            } else {
-                // path: ouro -> BUSD -> WBNB -> collateral
-                path = new address[](4);
-                path[0] = address(ouroContract);
-                path[1] = busdContract; 
-                path[2] = WBNB;
-                path[3] = token;
-            }
-
-            uint [] memory amounts = router.getAmountsIn(extraAssets, path);
-            uint256 extraOuroRequired = amounts[0];
-            
-            // @notice user needs sufficient OURO to swap assets out
-            // transfer total OURO to this contract, if user has insufficient OURO, the transaction will revert!
-            uint256 totalOuroRequired = extraOuroRequired.add(redeemedAssetValueInOURO);
-            ouroContract.safeTransferFrom(msg.sender, address(this), totalOuroRequired);
-            OUROTaken = totalOuroRequired;
-                 
-            // a) OURO to burn (the swapped part has given out)
-            IOUROToken(ouroContract).burn(redeemedAssetValueInOURO);
-            
-            // b) OURO to buy back assets
-            if (token == WBNB) {
-                amounts = router.swapExactTokensForETH (
-                    extraOuroRequired, 
-                    0, 
-                    path, 
-                    address(this), 
-                    block.timestamp.add(600)
-                );
-            } else {
-                // swap out tokens out to OURO contract
-                amounts = router.swapExactTokensForTokens(
-                    extraOuroRequired, 
-                    0, 
-                    path, 
-                    address(this), 
-                    block.timestamp.add(600)
-                );
-            }
-        }
+        // substract asset balance
+        _assetsBalance[token] = _assetsBalance[token].sub(amountAsset);
         
-        // finally we transfer the assets based on asset type back to user
+        // transfer user's equivalent OURO token to this contract directly, and burn OURO
+        uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amountAsset);
+        IERC20(ouroContract).safeTransferFrom(msg.sender, address(this), assetValueInOuro);
+        IOUROToken(ouroContract).burn(assetValueInOuro);
+        OUROTaken = assetValueInOuro;
+        
+        // Find out the exact number of assets redeemed to return to caller
+        //--------------------------------------------------------------------------------
+        // balance - BEFORE ( normally should be 0 )
+        uint256 amountRedeemed;
         if (token == WBNB) {
-            uint256 value = address(this).balance < amountAsset? address(this).balance:amountAsset;
-            msg.sender.sendValue(value);
+            amountRedeemed = address(this).balance;
         } else {
-            uint256 value = IERC20(token).balanceOf(address(this)) < amountAsset? IERC20(token).balanceOf(address(this)):amountAsset;
-            IERC20(token).safeTransfer(msg.sender, value);
+            amountRedeemed = IERC20(token).balanceOf(address(this));
         }
+
+        // redeem assets
+        _redeemSupply(collateral.vTokenAddress, amountAsset);
+
+        // balance - AFTER
+        if (token == WBNB) {
+            amountRedeemed = address(this).balance.sub(amountRedeemed);
+            msg.sender.sendValue(amountRedeemed);
+        } else {
+            amountRedeemed = IERC20(token).balanceOf(address(this)).sub(amountRedeemed);
+            IERC20(token).safeTransfer(msg.sender, amountRedeemed);
+        }
+        //--------------------------------------------------------------------------------
 
         // log withdraw
         emit Withdraw(msg.sender, address(token), amountAsset);
