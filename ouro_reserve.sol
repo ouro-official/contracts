@@ -768,8 +768,6 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         uint256 collateralToRedeem = slotValue
                                         .mul(assetUnit)
                                         .div(getAssetPrice(priceFeed));
-        // accounting
-        _assetsBalance[token] = _assetsBalance[token].sub(collateralToRedeem);
          
         // balance - before redeeming 
         uint256 redeemedAmount;
@@ -790,6 +788,9 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         } else {
             redeemedAmount = IERC20(token).balanceOf(address(this)).sub(redeemedAmount);
         }
+
+        // accounting
+        _assetsBalance[token] = _assetsBalance[token].sub(redeemedAmount);
 
         // split assets allocation
         uint256 assetToInsuranceFund = redeemedAmount.mul(50).div(100);
