@@ -342,7 +342,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev user deposit assets and receive OURO
      * @notice users need approve() assets to this contract
      * returns OURO minted
-     * the minimum amount ouro willing to receive is given as minAmountOuro.
+     * the minimum amount of OURO willing to receive is given as minAmountOuro.
      */
     function deposit(address token, uint256 amountAsset, uint256 minAmountOuro) external override payable checkWhiteList nonReentrant returns (uint256 OUROMinted) {
         // ouro balance of user BEFORE deposit
@@ -418,7 +418,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
     /**
      * @dev user swap his OURO back to assets
      * @notice users need approve() OURO assets to this contract
-     * the max amount of ouro willing to swap out is given by maxAmountOuro
+     * the max amount of OURO willing to swap in is given by maxAmountOuro
      */
     function withdraw(address token, uint256 amountAsset, uint256 maxAmountOuro) external override nonReentrant returns (uint256 OUROTaken) { 
         // ouro balance of user BEFORE deposit
