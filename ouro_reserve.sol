@@ -342,23 +342,24 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @dev user deposit assets and receive OURO
      * @notice users need approve() assets to this contract
      * returns OURO minted
+     * the minimum amount ouro willing to receive is given as minAmountOuro.
      */
     function deposit(address token, uint256 amountAsset, uint256 minAmountOuro) external override payable checkWhiteList nonReentrant returns (uint256 OUROMinted) {
         // ouro balance of user BEFORE deposit
-        uint256 ouroBalance = IERC20(ouroContract).balanceOf(msg.sender);
+        uint256 amountOuroMinted = IERC20(ouroContract).balanceOf(msg.sender);
 
         // deposit
-        uint256 minted = _deposit(token, amountAsset); 
+        _deposit(token, amountAsset); 
 
         // diff of ouro balance of user AFTER deposit
-        ouroBalance = IERC20(ouroContract).balanceOf(msg.sender).sub(ouroBalance);
+        amountOuroMinted = IERC20(ouroContract).balanceOf(msg.sender).sub(amountOuroMinted);
 
-        _require(ouroBalance >= minAmountOuro);
+        _require(amountOuroMinted >= minAmountOuro);
 
-        return minted;
+        return amountOuroMinted;
     }
 
-    function _deposit(address token, uint256 amountAsset) private returns (uint256 OUROMinted) {
+    function _deposit(address token, uint256 amountAsset) private {
         // locate collateral
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
         _require(valid);
@@ -401,9 +402,6 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         
         // log
         emit Deposit(msg.sender, assetValueInOuro);
-        
-        // returns OURO minted to user
-        return assetValueInOuro;
     }
     
     /**
@@ -420,8 +418,24 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
     /**
      * @dev user swap his OURO back to assets
      * @notice users need approve() OURO assets to this contract
+     * the max amount of ouro willing to swap out is given by maxAmountOuro
      */
-    function withdraw(address token, uint256 amountAsset) external override nonReentrant returns (uint256 OUROTaken) { 
+    function withdraw(address token, uint256 amountAsset, uint256 maxAmountOuro) external override nonReentrant returns (uint256 OUROTaken) { 
+        // ouro balance of user BEFORE deposit
+        uint256 amountOuroTaken = IERC20(ouroContract).balanceOf(msg.sender);
+
+        // withdraw
+        _withdraw(token, amountAsset); 
+
+        // diff of ouro balance of user AFTER withdraw
+        amountOuroTaken = amountOuroTaken.sub(IERC20(ouroContract).balanceOf(msg.sender));
+
+        _require(amountOuroTaken <= maxAmountOuro);
+
+        return amountOuroTaken;
+    }
+
+    function _withdraw(address token, uint256 amountAsset) private { 
         // non 0 check
         _require(amountAsset > 0);
         _require(_assetsBalance[token] > 0);
@@ -440,7 +454,6 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
         uint256 assetValueInOuro = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amountAsset);
         IERC20(ouroContract).safeTransferFrom(msg.sender, address(this), assetValueInOuro);
         IOUROToken(ouroContract).burn(assetValueInOuro);
-        OUROTaken = assetValueInOuro;
         
         // Find out the exact number of assets redeemed to return to caller
         //--------------------------------------------------------------------------------
@@ -467,9 +480,6 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
 
         // log withdraw
         emit Withdraw(msg.sender, address(token), amountAsset);
-        
-        // return OURO taken from user
-        return OUROTaken;
     }
     
     /**
