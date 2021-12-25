@@ -171,7 +171,16 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
         lastResortFund = account;
         emit LastResortFundSet(account);
     }
-    
+
+    /**
+     * @dev adjust OGS buy back ratio
+     */
+    function setOGSBuyBackRatio(uint ratio) external onlyOwner {
+        _require(ratio >= 0 && ratio <= 100);
+        OGSbuyBackRatio = ratio;
+        emit OGSbuyBackRatioSet(ratio);
+    }
+   
     /**
      * @dev owner add new collateral
      */
@@ -549,8 +558,8 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
     //    assets held in the pool is more than 3% less than the value of the issued OURO.
     // 2. The system will only use excess collateral in the pool to conduct OGS buy back and 
     //    burn when the value of the assets held in the pool is 3% higher than the value of the issued OURO
-    uint public constant rebalanceThreshold = 3;
-    uint public constant OGSbuyBackRatio = 70; // 70% to buy back OGS
+    uint public rebalanceThreshold = 30;  // milli(1/1000)
+    uint public OGSbuyBackRatio = 70; // 70% to buy back OGS
 
     // record last Rebase time
     uint public lastRebaseTimestamp = block.timestamp;
@@ -604,10 +613,10 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
                                                     .div(OURO_PRICE_UNIT);
         
         // compute values deviates
-        if (totalCollateralValue >= totalIssuedOUROValue.mul(100+rebalanceThreshold).div(100)) {
+        if (totalCollateralValue >= totalIssuedOUROValue.mul(1000+rebalanceThreshold).div(1000)) {
             _handleExcessiveValue(totalCollateralValue, totalIssuedOUROValue);
           
-        } else if (totalCollateralValue <= totalIssuedOUROValue.mul(100-rebalanceThreshold).div(100)) {
+        } else if (totalCollateralValue <= totalIssuedOUROValue.mul(1000-rebalanceThreshold).div(1000)) {
             // collaterals has less value to OURO value, mint new OGS to buy assets
             uint256 valueDeviates = totalIssuedOUROValue.sub(totalCollateralValue);
             
@@ -1118,4 +1127,5 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
      event WhiteListToggled(bool enabled);
      event WhiteListSet(address account, bool allow);
      event EmergencyWithdraw(address account, address to);
+     event OGSbuyBackRatioSet(uint256 ratio);
 }
