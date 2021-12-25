@@ -7,7 +7,7 @@ import "./library.sol";
 /**
  * @title OURO community reserve
  */
-contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
+contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
     using Address for address payable;
@@ -145,7 +145,6 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
     function _require(bool condition) private pure {
         require (condition);
     }
-
 
     modifier checkWhiteList() {
         if (whiteListEnabled) {
@@ -332,6 +331,16 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
     }
     
     /**
+     * @dev called by the owner to pause, triggers stopped state
+     **/
+    function pause() onlyOwner external { _pause(); }
+
+    /**
+    * @dev called by the owner to unpause, returns to normal state
+    */
+    function unpause() onlyOwner external { _unpause(); }
+    
+    /**
      * ======================================================================================
      * 
      * OURO's collateral deposit & withdraw
@@ -344,7 +353,15 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * returns OURO minted
      * the minimum amount of OURO willing to receive is given as minAmountOuro.
      */
-    function deposit(address token, uint256 amountAsset, uint256 minAmountOuro) external override payable checkWhiteList nonReentrant returns (uint256 OUROMinted) {
+    function deposit(address token, uint256 amountAsset, uint256 minAmountOuro) 
+        external 
+        override 
+        payable 
+        checkWhiteList 
+        nonReentrant 
+        whenNotPaused 
+        returns (uint256 OUROMinted) {
+
         // ouro balance of user BEFORE deposit
         uint256 amountOuroMinted = IERC20(ouroContract).balanceOf(msg.sender);
 
@@ -420,7 +437,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard {
      * @notice users need approve() OURO assets to this contract
      * the max amount of OURO willing to swap in is given by maxAmountOuro
      */
-    function withdraw(address token, uint256 amountAsset, uint256 maxAmountOuro) external override nonReentrant returns (uint256 OUROTaken) { 
+    function withdraw(address token, uint256 amountAsset, uint256 maxAmountOuro) external override nonReentrant returns (uint256 OUROTaken) {
         // ouro balance of user BEFORE deposit
         uint256 amountOuroTaken = IERC20(ouroContract).balanceOf(msg.sender);
 
