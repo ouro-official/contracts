@@ -595,7 +595,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
     uint public lastRebaseTimestamp = block.timestamp;
     
     // rebase period
-    uint public constant rebasePeriod = 1 days;
+    uint public constant rebasePeriod = 12 hours;
 
     // multiplier
     uint internal constant MULTIPLIER = 1e18;
