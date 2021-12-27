@@ -143,11 +143,18 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
         _require(valid);
 
-        uint256 unitAssetOUROValue = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, collateral.assetUnit);
+        // ouro USD value
+        uint256 ouroValue = amountOURO
+                            .mul(ouroPrice)
+                            .div(OURO_PRICE_UNIT);
 
-        return amountOURO
+        // get 1 unit(collateral.assetUnit) asset value in USD 
+        uint256 assetUnitPrice = getAssetPrice(collateral.priceFeed);
+
+        // assets required
+        return ouroValue
                             .mul(collateral.assetUnit)
-                            .div(unitAssetOUROValue);
+                            .div(assetUnitPrice);
     }
     
      /**
