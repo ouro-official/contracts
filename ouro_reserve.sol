@@ -126,6 +126,29 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
                         .mul(USD_UNIT)
                         .div(10**uint256(feed.decimals()));
     }
+
+    /**
+     * @dev returns OURO required to swap given assets out
+     */
+    function getOuroIn(uint256 amount, address token) external view returns(uint256) {
+        (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
+        _require(valid);
+        return _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amount);
+    }
+
+    /**
+     * @dev returns assets required to mint given amount of OURO out
+     */
+    function getAssetsIn(uint256 amountOURO, address token) external view returns(uint256) {
+        (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
+        _require(valid);
+
+        uint256 unitAssetOUROValue = _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, collateral.assetUnit);
+
+        return amountOURO
+                            .mul(collateral.assetUnit)
+                            .div(unitAssetOUROValue);
+    }
     
      /**
      * ======================================================================================
