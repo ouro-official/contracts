@@ -1057,6 +1057,19 @@ interface IOUROToken is IERC20 {
 
 interface IOUROReserve {
     function getPrice() external view returns(uint256);
+    function getAssetBalance(address token) external view returns(uint256);
+    function getAssetPrice(AggregatorV3Interface feed) external view returns(uint256);
+
+    function getCollateral(address token) external view returns (
+        address vTokenAddress,
+        uint256 assetUnit, // usually 1e18
+        uint256 lastPrice, // record latest collateral price
+        AggregatorV3Interface priceFeed // asset price feed for xxx/USDT
+    );
+
+    function getOuroIn(uint256 amount, address token) external view returns(uint256);
+    function getAssetsIn(uint256 amountOURO, address token) external view returns(uint256);
+    
     function deposit(address token, uint256 amountAsset, uint256 minAmountOuro) external payable returns (uint256 OUROMinted);
     function withdraw(address token, uint256 amountAsset, uint256 maxAmountOuro) external returns(uint256 OUROTaken);
 }

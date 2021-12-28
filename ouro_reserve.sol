@@ -83,12 +83,12 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
     /**
      * @dev get specific collateral balance
      */
-    function getAssetBalance(address token) external view returns(uint256) { return _assetsBalance[token]; }
+    function getAssetBalance(address token) external override view returns(uint256) { return _assetsBalance[token]; }
     
     /**
      * @dev get specific collateral info
      */
-    function getCollateral(address token) external view returns (
+    function getCollateral(address token) external override view returns (
         address vTokenAddress,
         uint256 assetUnit, // usually 1e18
         uint256 lastPrice, // record latest collateral price
@@ -113,7 +113,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
     /**
      * @dev get asset price in USDT for 1 unit of asset
      */
-    function getAssetPrice(AggregatorV3Interface feed) public view returns(uint256) {
+    function getAssetPrice(AggregatorV3Interface feed) public override view returns(uint256) {
         // query price from chainlink
         (, int latestPrice, , , ) = feed.latestRoundData();
 
@@ -130,7 +130,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
     /**
      * @dev returns OURO required to swap given assets out
      */
-    function getOuroIn(uint256 amount, address token) external view returns(uint256) {
+    function getOuroIn(uint256 amount, address token) external override view returns(uint256) {
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
         _require(valid);
         return _lookupAssetValueInOURO(collateral.priceFeed, collateral.assetUnit, amount);
@@ -139,7 +139,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
     /**
      * @dev returns assets required to mint given amount of OURO out
      */
-    function getAssetsIn(uint256 amountOURO, address token) external view returns(uint256) {
+    function getAssetsIn(uint256 amountOURO, address token) external override view returns(uint256) {
         (CollateralInfo memory collateral, bool valid) = _findCollateral(token);
         _require(valid);
 
