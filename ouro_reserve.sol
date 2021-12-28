@@ -30,7 +30,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
     uint public ouroLastPriceUpdate = block.timestamp; 
     uint public ouroPriceResetPeriod = 30 days; // price limit reset mothly
     uint public ouroIssuePeriod = 30 days; // ouro issuance limit
-    uint public appreciationLimit = 3; // 3 perce nt monthly OURO price appreciation limit
+    uint public appreciationLimit = 3; // 3% monthly OURO price appreciation limit
 
     // contracts
     address public constant busdContract = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
@@ -53,7 +53,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
     // @dev scheduled issue from
     uint256 public immutable issueFrom = block.timestamp;
     
-    // a struct to storge collateral asset info
+    // a struct to store collateral asset info
     struct CollateralInfo {
         address token;
         address vTokenAddress;
@@ -210,7 +210,16 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
         OGSbuyBackRatio = ratio;
         emit OGSbuyBackRatioSet(ratio);
     }
-   
+
+    /**
+     * @dev adjust rebase period
+     */
+    function setRebasePeriod(uint period) external onlyOwner {
+        _require(period >= 1 hours && period <= 24 hours);
+        rebasePeriod = period;
+        emit RebasePeriodSet(period);
+    }
+
     /**
      * @dev owner add new collateral
      */
@@ -595,7 +604,7 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
     uint public lastRebaseTimestamp = block.timestamp;
     
     // rebase period
-    uint public constant rebasePeriod = 12 hours;
+    uint public rebasePeriod = 6 hours;
 
     // multiplier
     uint internal constant MULTIPLIER = 1e18;
@@ -1158,4 +1167,5 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
      event WhiteListSet(address account, bool allow);
      event EmergencyWithdraw(address account, address to);
      event OGSbuyBackRatioSet(uint256 ratio);
+     event RebasePeriodSet(uint256 period);
 }
