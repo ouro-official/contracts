@@ -185,15 +185,13 @@ contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
      * @dev claim OGS rewards only
      */
     function claimOGSRewards() external nonReentrant whenNotPaused {
-        // only from EOA
-        require(!msg.sender.isContract() && msg.sender == tx.origin);
-
         // settle previous rewards
         settleStaker(msg.sender);
         
         // reward balance modification
         uint amountReward = _ogsRewardBalance[msg.sender];
         delete _ogsRewardBalance[msg.sender]; // zero reward balance
+        require(amountReward > 0, "0 reward");
 
         // mint OGS reward to sender
         IOGSToken(ogsContract).mint(msg.sender, amountReward);
@@ -206,15 +204,13 @@ contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
      * @dev claim OURO rewards only
      */
     function claimOURORewards() external nonReentrant whenNotPaused {
-        // only from EOA
-        require(!msg.sender.isContract() && msg.sender == tx.origin);
-
         // settle previous rewards
         settleStaker(msg.sender);
         
         // reward balance modification
         uint amountReward = _ouroRewardBalance[msg.sender];
         delete _ouroRewardBalance[msg.sender]; // zero reward balance
+        require(amountReward > 0, "0 reward");
 
         // transfer OURO to sender
         IERC20(ouroContract).safeTransfer(msg.sender, amountReward);
@@ -227,10 +223,7 @@ contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
      * @dev withdraw assets
      */
     function withdraw(uint256 amount) external nonReentrant {
-        // only from EOA
-        require(!msg.sender.isContract() && msg.sender == tx.origin);
-
-        require(amount <= _balances[msg.sender], "balance exceeded");
+        require(amount > 0 && amount <= _balances[msg.sender], "balance exceeded");
 
         // settle previous rewards
         settleStaker(msg.sender);
