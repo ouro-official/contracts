@@ -154,6 +154,9 @@ contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
      * @dev deposit assets
      */
     function deposit(uint256 amount) external payable nonReentrant whenNotPaused {
+        // only from EOA
+        require(!msg.sender.isContract() && msg.sender == tx.origin);
+
         if (isNativeToken) {
             amount = msg.value;
         }
@@ -218,6 +221,9 @@ contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
      * @dev withdraw assets
      */
     function withdraw(uint256 amount) external nonReentrant {
+        // only from EOA
+        require(!msg.sender.isContract() && msg.sender == tx.origin);
+        
         require(amount <= _balances[msg.sender], "balance exceeded");
 
         // settle previous rewards
