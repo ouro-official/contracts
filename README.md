@@ -61,7 +61,7 @@ function getOuroIn(uint256 amount, address token) external view returns(uint256)
 
 Returns: *OURO* amount required to burn.
 
-### Deposit assets into OURO Reserve to mint OURO
+### Mint OURO
 ```solidity
 function deposit(address token, uint256 amountAsset, uint256 minAmountOuro) external payable returns (uint256 OUROMinted);
 ```
@@ -82,7 +82,7 @@ Parameters:
 
 Returns the amount of *OURO* minted.
 
-### Withdraw assets from OURO Reserve and burn OURO
+### Withdraw assets
 ```solidity
 function withdraw(address token, uint256 amountAsset, uint256 maxAmountOuro) external returns(uint256 OUROTaken);
 ```
