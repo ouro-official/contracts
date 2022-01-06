@@ -82,6 +82,8 @@ Parameters:
 
 Returns the amount of *OURO* minted.
 
+Transaction reverts on error.
+
 ### Withdraw assets
 ```solidity
 function withdraw(address token, uint256 amountAsset, uint256 maxAmountOuro) external returns(uint256 OUROTaken);
@@ -104,7 +106,8 @@ Parameters:
 
 Returns the amount of *OURO* transfered out from your account.
 
+Transaction reverts on error. 
+
+Note: If *OURO Reserve* has insufficient collateral to return, it will transfer the maximum possible assets back.
+
 PS. `uint256 MAX_UINT256 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff`
-
-
-
