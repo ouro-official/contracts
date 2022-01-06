@@ -72,7 +72,7 @@ In order to mint new *OURO*, you need to `approve()` your asset token to *OURO R
 Prices may change between the time of query and the time of transaction confirmation, 
 `minAmountOuro` is to limit the minimum amount of *OURO* willing to receiving in `deposit()` transaction.
 
-If you want to swap *OURO* at realtime price of the asset, simply set 0 to `minAmountOuro`.
+If you want to mint *OURO* at realtime price of the asset, simply set 0 to `minAmountOuro`.
 
 Parameters:
 
@@ -94,7 +94,7 @@ the *OURO Reserve* contract will be able to transfer *OURO* token from your acco
 Prices may change between the time of query and the time of transaction confirmation, 
 `maxAmountOuro` is to limit the maximum amount of *OURO* willing to burn in `withdraw()` transaction.
 
-If you want to get back assets at realtime price of the asset, simply set *MAX_UINT256* to `maxAmountOuro`.
+If you want to get back assets at realtime price, simply set *MAX_UINT256* to `maxAmountOuro`.
 
 Parameters:
 
