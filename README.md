@@ -41,7 +41,7 @@ Returns the amount of assets in *OURO Reserve*
 ```solidity
 function getPrice() public view returns(uint256);
 ```
-getPrice returns current *OURO* price in BUSD, *OURO Reserve* always keeps the price 1:1 pegged.
+getPrice returns current *OURO* price in USD, *OURO Reserve* always keeps the price 1:1 pegged.
 
 ### Get the amount of assets required to mint given amount of OURO
 ```solidity
