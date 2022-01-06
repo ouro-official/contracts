@@ -17,7 +17,7 @@ You can build your own smart contracts to interact with *OURO Reserve* with your
 * *OURO*: The stable coin *OURO Reserve* issues, initially 1:1 pegged to USD, appreciate by 3% max each month.
 * *OGS*: The governance token of *OURO Reserve*, if profits has made in *OURO Reserve*, *OGS* holders shares the revenue from *OGS* price going up. Also, critical parameter changes of *OURO Reserve* can only be executed via DAO operated with *OGS* token.
 
-## APIs for external contracts are listed as followings
+## API
 
 ### getCollateral
 Get collateral information which *OURO Reserve* supports
