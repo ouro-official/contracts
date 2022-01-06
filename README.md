@@ -14,7 +14,8 @@ You can build your own smart contracts to interact with *OURO Reserve* with your
 
 APIs for external contracts are listed as followings:
 
-### Get collateral information which OURO Reserve supports
+### getCollateral()
+Get collateral information which OURO Reserve supports
 
 ```solidity
 function getCollateral(address token) external view returns (
@@ -31,7 +32,8 @@ Returns: detailed collateral information which *OURO Reserve* supports, includin
 3. `lastPrice`: Records the latest price during last `rebase()` operation.
 4. `priceFeed`: The Chainlink price oracle for this asset.
 
-### Get overall collateral balance in OURO Reserve
+### getAssetBalance()
+Get overall collateral balance in OURO Reserve
 
 ```solidity
 function getAssetBalance(address token) external view returns(uint256);
@@ -42,14 +44,16 @@ Parameters:
 
 Returns: the amount of assets in *OURO Reserve*
 
-### Get OURO price in BUSD
+### getPrice()
+Get OURO price in BUSD
 ```solidity
 function getPrice() public view returns(uint256);
 ```
 
 Returns: current *OURO* price in USD, *OURO Reserve* always keeps the price 1:1 pegged.
 
-### Get the amount of assets required to mint given amount of OURO
+### getAssetsIn()
+Get the amount of assets required to mint given amount of OURO
 ```solidity
 function getAssetsIn(uint256 amountOURO, address token) external view returns(uint256);
 ```
@@ -60,7 +64,8 @@ Parameters:
 
 Returns: amount of assets required.
 
-### Get the amount of OURO required to swap given amount of assets out
+### getOuroIn()
+Get the amount of OURO required to swap given amount of assets out
 ```solidity
 function getOuroIn(uint256 amount, address token) external view returns(uint256);
 ```
@@ -72,7 +77,8 @@ Parameters:
 
 Returns: *OURO* amount required to burn.
 
-### Mint OURO
+### deposit()
+Mint OURO
 ```solidity
 function deposit(address token, uint256 amountAsset, uint256 minAmountOuro) external payable returns (uint256 OUROMinted);
 ```
@@ -95,7 +101,8 @@ Returns: the amount of *OURO* minted.
 
 Transaction reverts on error.
 
-### Assets withdrawal
+### withdraw()
+Assets withdrawal
 ```solidity
 function withdraw(address token, uint256 amountAsset, uint256 maxAmountOuro) external returns(uint256 OUROTaken);
 ```
