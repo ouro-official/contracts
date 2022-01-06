@@ -100,7 +100,7 @@ Parameters:
 
 1. `token`: BEP20 token to swap out, for BNB, use [WBNB](https://bscscan.com/token/0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c) address instead.
 2. `amountAsset`: amount of assets to swap in (this parameter is omitted for BNB deposit).
-3. `minAmountOuro`: minimum amount of *OURO* willing to receive.
+3. `maxAmountOuro`: maximum amount of *OURO* willing to burn.
 
 Returns the amount of *OURO* transfered out from your account.
 
