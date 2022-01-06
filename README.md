@@ -33,7 +33,7 @@ function getCollateral(address token) external view returns (
 
 Returns: detailed collateral information which *OURO Reserve* supports, including:
 1. `vTokenAddress`: Venus VToken address for lending.
-2. `assetUnit`: The amount for one unit of asset, eg: 1ETH = 1e18.
+2. `assetUnit`: The amount for one unit of asset, eg: 1 BNB = 1e18.
 3. `lastPrice`: Records the latest price during last `rebase()` operation.
 4. `priceFeed`: The Chainlink price oracle for this asset.
 
