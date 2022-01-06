@@ -12,7 +12,12 @@ OURO RESERVE API
 ===
 You can build your own smart contracts to interact with *OURO Reserve* with your own strategy.
 
-APIs for external contracts are listed as followings:
+## Terminology
+* *OURO Reserve*: OURO Reserve is the only authoritative contract to mint *OURO* stable coin, OURO Reserve has the right to lend the assets it holds to earn risk-free yields. Anyone has the right to deposit assets into *OURO Reserve* to mint *OURO* at any time, and burn *OURO* to get back assets conversely.
+* *OURO*: The stable coin *OURO Reserve* issues, initially 1:1 pegged to USD, appreciate by 3% max each month.
+* *OGS*: The governance token of *OURO Reserve*, if profits has made in *OURO Reserve*, *OGS* holders shares the revenue from *OGS* price going up. Also, critical parameter changes of *OURO Reserve* can only be executed via DAO operated with *OGS* token.
+
+## APIs for external contracts are listed as followings
 
 ### getCollateral
 Get collateral information which *OURO Reserve* supports
