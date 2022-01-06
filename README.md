@@ -14,7 +14,7 @@ You can build your own smart contracts to interact with *OURO Reserve* with your
 
 APIs for external contracts are listed as followings:
 
-### Get collateral info which OURO Reserve support
+### Get collateral information which OURO Reserve supports
 
 ```solidity
 function getCollateral(address token) external view returns (
@@ -24,29 +24,37 @@ function getCollateral(address token) external view returns (
         AggregatorV3Interface priceFeed
 );
 ```
-Returns the detailed collateral info which *OURO Reserve* supports, including:
+
+Returns: detailed collateral information which *OURO Reserve* supports, including:
 1. `vTokenAddress`: Venus VToken address for lending.
 2. `assetUnit`: The amount for one unit of asset, eg: 1ETH = 1e18.
 3. `lastPrice`: Records the latest price during last `rebase()` operation.
 4. `priceFeed`: The Chainlink price oracle for this asset.
 
-### Get collateral balance in OURO Reserve
+### Get overall collateral balance in OURO Reserve
 
 ```solidity
 function getAssetBalance(address token) external view returns(uint256);
 ```
-Returns the amount of assets in *OURO Reserve*
+Parameters:
+
+1. `token`: BEP20 asset to check, for BNB, use [WBNB](https://bscscan.com/token/0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c) address instead.
+
+Returns: the amount of assets in *OURO Reserve*
 
 ### Get OURO price in BUSD
 ```solidity
 function getPrice() public view returns(uint256);
 ```
-getPrice returns current *OURO* price in USD, *OURO Reserve* always keeps the price 1:1 pegged.
+
+Returns: current *OURO* price in USD, *OURO Reserve* always keeps the price 1:1 pegged.
 
 ### Get the amount of assets required to mint given amount of OURO
 ```solidity
 function getAssetsIn(uint256 amountOURO, address token) external view returns(uint256);
 ```
+Parameters:
+
 1. `amountOURO`: amount of OURO expected to mint.
 2. `token`: BEP20 token to swap in, for BNB, use [WBNB](https://bscscan.com/token/0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c) address instead.
 
@@ -56,6 +64,9 @@ Returns: amount of assets required.
 ```solidity
 function getOuroIn(uint256 amount, address token) external view returns(uint256);
 ```
+
+Parameters:
+
 1. `amount`: amount of assets expected to swap out.
 2. `token`: BEP20 token to receive, for BNB, use [WBNB](https://bscscan.com/token/0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c) address instead.
 
@@ -80,7 +91,7 @@ Parameters:
 2. `amountAsset`: amount of assets to swap in(this parameter is omitted for BNB deposit).
 3. `minAmountOuro`: minimum amount of *OURO* willing to receive.
 
-Returns the amount of *OURO* minted.
+Returns: the amount of *OURO* minted.
 
 Transaction reverts on error.
 
@@ -104,7 +115,7 @@ Parameters:
 2. `amountAsset`: amount of assets to swap out.
 3. `maxAmountOuro`: maximum amount of *OURO* willing to burn.
 
-Returns the amount of *OURO* transfered out from your account.
+Returns: the amount of *OURO* transfered out from your account.
 
 Transaction reverts on error. 
 
