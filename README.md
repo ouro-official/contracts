@@ -14,7 +14,7 @@ You can build your own smart contracts to interact with *OURO Reserve* with your
 
 APIs for external contracts are listed as followings:
 
-### Get collateral info which OURO reserve support
+### Get collateral info which OURO Reserve support
 
 ```solidity
 function getCollateral(address token) external view returns (
@@ -30,7 +30,7 @@ Returns the detailed collateral info which *OURO Reserve* supports, including:
 3. `lastPrice`: Records the latest price during last `rebase()` operation.
 4. `priceFeed`: The Chainlink price oracle for this asset.
 
-### Get collateral balance in OURO reserve
+### Get collateral balance in OURO Reserve
 
 ```solidity
 function getAssetBalance(address token) external view returns(uint256);
