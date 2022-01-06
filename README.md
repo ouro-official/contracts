@@ -1,8 +1,7 @@
-OURO
+OURO 
 ===
 
-Ouro aims to create a stable, inflation-proof store of value by deriving fiat inflations 
-manifested in the growth of the value of crypto assets and migrating them onto the native asset OURO.
+Ouro aims to create an inflation-proof store of value system on BSC, featuring Peer-to-Pool asset swaps. In essence, the project derives fiat inflations manifested in the growth of the value of crypto assets and migrates them onto OURO, making it inflation-proof against the USD.
 
 Binance Smart Chain Mainnet Deployment:
 
