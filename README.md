@@ -99,7 +99,7 @@ If you want to get back assets at realtime price, simply set *MAX_UINT256* to `m
 Parameters:
 
 1. `token`: BEP20 token to swap out, for BNB, use [WBNB](https://bscscan.com/token/0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c) address instead.
-2. `amountAsset`: amount of assets to swap in.
+2. `amountAsset`: amount of assets to swap out.
 3. `maxAmountOuro`: maximum amount of *OURO* willing to burn.
 
 Returns the amount of *OURO* transfered out from your account.
