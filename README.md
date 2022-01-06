@@ -84,7 +84,7 @@ Returns the amount of *OURO* minted.
 
 Transaction reverts on error.
 
-### Withdraw assets
+### Assets withdrawal
 ```solidity
 function withdraw(address token, uint256 amountAsset, uint256 maxAmountOuro) external returns(uint256 OUROTaken);
 ```
