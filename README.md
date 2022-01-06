@@ -91,7 +91,7 @@ function deposit(address token, uint256 amountAsset, uint256 minAmountOuro) exte
 In order to mint new *OURO*, you need to `approve()` your asset token to *OURO Reserve* contract first.
 
 Prices may change between the time of query and the time of transaction confirmation, 
-`minAmountOuro` is to limit the minimum amount of *OURO* willing to receiving in `deposit()` transaction.
+`minAmountOuro` is to limit the minimum amount of *OURO* willing to receive in `deposit()` transaction.
 
 If you want to mint *OURO* at realtime price of the asset, simply set 0 to `minAmountOuro`.
 
