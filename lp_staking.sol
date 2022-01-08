@@ -15,7 +15,7 @@ contract LPStaking is Ownable, ReentrancyGuard,Pausable {
     uint256 internal constant SHARE_MULTIPLIER = 1e18; // share multiplier to avert division underflow
     
     address public immutable assetContract; // the asset to stake
-    address public constant ogsContract = 0x37a6a7c2EE5E58d38Aa0fa6CE0E4235C17D9a516;
+    address public constant ogsContract = 0x416947e6Fc78F158fd9B775fA846B72d768879c2;
 
     mapping (address => uint256) private _balances; // tracking staker's value
     mapping (address => uint256) internal _rewardBalance; // tracking staker's claimable reward tokens

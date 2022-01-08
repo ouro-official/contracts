@@ -21,10 +21,10 @@ contract AssetStaking is Ownable, ReentrancyGuard, Pausable {
     address public immutable assetContract; // the asset to stake
     address public immutable vTokenAddress; // venus vToken Address
     
-    address public constant ouroContract = 0x0408185cA2BA22c836E1bd53E351ba2545EFccD0;
-    address public constant ogsContract = 0x37a6a7c2EE5E58d38Aa0fa6CE0E4235C17D9a516;
+    address public constant ouroContract = 0x0a4FC79921f960A4264717FeFEE518E088173a79;
+    address public constant ogsContract = 0x416947e6Fc78F158fd9B775fA846B72d768879c2;
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
-    address public constant ouroReserveAddress = 0x2B4B7915Dc85FB40A753462751314A01cf9b9De2;
+    address public constant ouroReserveAddress = 0x8739aBC0be4f271A5f4faC825BebA798Ee03f0CA;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
 
     // pancake router

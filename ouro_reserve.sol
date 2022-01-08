@@ -34,9 +34,9 @@ contract OUROReserve is IOUROReserve,Ownable,ReentrancyGuard,Pausable {
 
     // contracts
     address public constant busdContract = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
-    IOUROToken public constant ouroContract = IOUROToken(0x0408185cA2BA22c836E1bd53E351ba2545EFccD0);
-    IOGSToken public constant ogsContract = IOGSToken(0x37a6a7c2EE5E58d38Aa0fa6CE0E4235C17D9a516);
-    IOURODist public ouroDistContact = IOURODist(0x8CB238b7a751549Bf55EA192Da5F4d78D064EedA);
+    IOUROToken public constant ouroContract = IOUROToken(0x0a4FC79921f960A4264717FeFEE518E088173a79);
+    IOGSToken public constant ogsContract = IOGSToken(0x416947e6Fc78F158fd9B775fA846B72d768879c2);
+    IOURODist public ouroDistContact = IOURODist(0x15a59d5f5847df9f6c24272096E967fa10ffb18a);
     address public constant unitroller = 0xfD36E2c2a6789Db23113685031d7F16329158384;
     address public constant xvsAddress = 0xcF6BB5389c92Bdda8a3747Ddb454cB7a64626C63;
     IPancakeRouter02 public constant router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);

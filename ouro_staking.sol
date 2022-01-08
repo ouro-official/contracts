@@ -18,8 +18,8 @@ contract OUROStaking is Ownable, ReentrancyGuard, Pausable {
     
     uint256 internal constant SHARE_MULTIPLIER = 1e18; // share multiplier to avert division underflow
     
-    address public constant ouroContract = 0x0408185cA2BA22c836E1bd53E351ba2545EFccD0; 
-    address public constant ogsContract = 0x37a6a7c2EE5E58d38Aa0fa6CE0E4235C17D9a516;
+    address public constant ouroContract = 0x0a4FC79921f960A4264717FeFEE518E088173a79; 
+    address public constant ogsContract = 0x416947e6Fc78F158fd9B775fA846B72d768879c2;
     address public ogsPaymentAccount = 0x1Ee6c29c5654705B122cc867D09b250603b9f93d;
     address public immutable vestingContract;
 
@@ -301,8 +301,8 @@ contract OUROVesting is Ownable, IOUROVesting {
     uint256 internal constant DAY = 1 days;
     uint256 internal constant VestingPeriod = DAY * 90;
     
-    address public constant ogsContract = 0x37a6a7c2EE5E58d38Aa0fa6CE0E4235C17D9a516;
-    address public ogsPaymentAccount = 0x1Ee6c29c5654705B122cc867D09b250603b9f93d;
+    address public constant ogsContract = 0x416947e6Fc78F158fd9B775fA846B72d768879c2;
+    address public ogsPaymentAccount = 0x71FfD4175Eef64d455B7eaa0e1d952B0F08c0675;
     
     // @dev vesting assets are grouped by day
     struct Round {
