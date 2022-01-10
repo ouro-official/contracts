@@ -118,9 +118,9 @@ contract OUROProxy is IOUROReserve, Ownable, ReentrancyGuard {
         }
     }
     
-    function getPrice() external override view returns(uint256) { return IOUROReserve(ouroContract).getPrice(); }
-    function getAssetBalance(address token) external override view returns(uint256) { return IOUROReserve(ouroContract).getAssetBalance(token); }
-    function getAssetPrice(AggregatorV3Interface feed) external override view returns(uint256) {return IOUROReserve(ouroContract).getAssetPrice(feed); }
+    function getPrice() external override view returns(uint256) { return IOUROReserve(ouroReserve).getPrice(); }
+    function getAssetBalance(address token) external override view returns(uint256) { return IOUROReserve(ouroReserve).getAssetBalance(token); }
+    function getAssetPrice(AggregatorV3Interface feed) external override view returns(uint256) {return IOUROReserve(ouroReserve).getAssetPrice(feed); }
 
     function getCollateral(address token) external override view returns (
         address vTokenAddress,
@@ -128,11 +128,11 @@ contract OUROProxy is IOUROReserve, Ownable, ReentrancyGuard {
         uint256 lastPrice, // record latest collateral price
         AggregatorV3Interface priceFeed // asset price feed for xxx/USDT
     ) {
-        return IOUROReserve(ouroContract).getCollateral(token);
+        return IOUROReserve(ouroReserve).getCollateral(token);
     }
 
-    function getOuroIn(uint256 amount, address token) external override view returns(uint256) { return IOUROReserve(ouroContract).getOuroIn(amount,token); }
-    function getAssetsIn(uint256 amountOURO, address token) external override view returns(uint256){ return IOUROReserve(ouroContract).getAssetsIn(amountOURO,token); }
+    function getOuroIn(uint256 amount, address token) external override view returns(uint256) { return IOUROReserve(ouroReserve).getOuroIn(amount,token); }
+    function getAssetsIn(uint256 amountOURO, address token) external override view returns(uint256){ return IOUROReserve(ouroReserve).getAssetsIn(amountOURO,token); }
 
     /**
      * @dev find the given asset value priced in OURO
