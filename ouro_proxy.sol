@@ -74,17 +74,15 @@ contract OUROProxy is IOUROReserve, Ownable, ReentrancyGuard {
         // bridge token assets to ouro reserve
         //  asset: caller -> proxy -> ouro reserve
         //  ouro: ouro reserve -> proxy -> caller
-        uint256 ouroMinted;
         if (token == WBNB) {
-            ouroMinted = IOUROReserve(ouroReserve).deposit{value:msg.value}(token, amountAsset, minAmountOuro);
+            OUROMinted = IOUROReserve(ouroReserve).deposit{value:msg.value}(token, amountAsset, minAmountOuro);
         } else {
             IERC20(token).safeTransferFrom(msg.sender, address(this), amountAsset);
-            ouroMinted = IOUROReserve(ouroReserve).deposit(token, amountAsset, minAmountOuro);
+            OUROMinted = IOUROReserve(ouroReserve).deposit(token, amountAsset, minAmountOuro);
         }
 
-        // transfer minted OURO to sender
-        IERC20(ouroContract).safeTransfer(msg.sender, ouroMinted);
-        return ouroMinted;
+        // transfer all OURO to sender
+        IERC20(ouroContract).safeTransfer(msg.sender, IERC20(ouroContract).balanceOf(address(this)));
     }
         
     function withdraw(address token, uint256 amountAsset, uint256 maxAmountOuro) external override nonReentrant returns(uint256 OUROTaken) {
