@@ -7,6 +7,12 @@ Binance Smart Chain Mainnet Deployment:
 * OURO BEP20 Token: https://bscscan.com/token/0x0a4fc79921f960a4264717fefee518e088173a79
 * OGS BEP20 Token: https://bscscan.com/token/0x416947e6Fc78F158fd9B775fA846B72d768879c2
 * OURO Reserve: https://bscscan.com/address/0x8739aBC0be4f271A5f4faC825BebA798Ee03f0CA#code
+* OURO Proxy: https://bscscan.com/address/0xEBc85Adf95498E53529b1c43e16E2D46e06d9E0e#code
+
+OURO Proxy
+===
+Before GMT: Jan 30, 2023, AM 3:26, or unix timestamp: 1675049203, minting OURO can only be done via proxy contract,
+
 
 OURO RESERVE API
 ===
