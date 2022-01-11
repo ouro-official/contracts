@@ -11,7 +11,7 @@ Binance Smart Chain Mainnet Deployment:
 
 OURO Proxy
 ===
-Before GMT: Jan 30, 2023, AM 3:26, or unix timestamp: 1675049203, minting OURO can only be done via proxy contract,
+Before GMT: Jan 30, 2023, AM 3:26, or unix timestamp: 1675049203, minting OURO can only be done via proxy contract, the interface of Proxy is just the same as OURO Reserve.
 
 
 OURO RESERVE API
